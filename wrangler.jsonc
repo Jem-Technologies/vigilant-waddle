@@ -1,0 +1,9 @@
+{
+"name": "worker-name",
+"compatibility_date": "2025-08-30",
+"directory": "./dist"
+//	"main": "index.js",  }
+//	"build": {
+//		"command": "npm run build",
+//		"watch_dir": "./src"
+}
