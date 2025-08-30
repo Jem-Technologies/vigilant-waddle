@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en" data-density="comfortable">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Perfect Unified — Project Unified Prototype</title>
+  <meta name="description" content="Perfect Unified: A unified digital ecosystem prototype (HTML + CSS + JS)">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- App Shell -->
+  <div id="app" class="app-shell">
+    <!-- Top Bar -->
+    <header class="topbar" role="banner" aria-label="Top application bar">
+      <div class="left">
+        <button class="icon-btn" id="btnSidebar" aria-label="Toggle navigation" title="Toggle navigation (Alt+S)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3zM3 11h12v2H3zM3 16h18v2H3z"/></svg>
+        </button>
+        <a href="#/" class="logo" aria-label="Go to Home">
+          <span class="logo-mark">PU</span>
+          <span class="logo-text">Perfect Unified</span>
+        </a>
+      </div>
+
+      <div class="center">
+        <button id="cmdkBtn" class="cmdk-btn" aria-haspopup="dialog" aria-controls="cmdk" title="Command Palette (Ctrl/Cmd + K)">
+          ⌘K
+        </button>
+        <div class="search-wrap" role="search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input id="globalSearch" type="search" placeholder="Search messages, tasks, files, notes…" aria-label="Global Search (/)">
+          <div id="searchResults" class="search-results" role="listbox" aria-label="Search results" hidden></div>
+        </div>
+        <div class="divider"></div>
+        <button id="btnNew" class="btn primary" aria-haspopup="menu" aria-expanded="false" aria-controls="newMenu" title="New (Alt+N)">New</button>
+        <menu id="newMenu" class="menu" role="menu" hidden>
+          <button role="menuitem" data-action="newEmail">✉︎ Email</button>
+          <button role="menuitem" data-action="newTask">☑︎ Task</button>
+          <button role="menuitem" data-action="newEvent">📅 Event</button>
+          <button role="menuitem" data-action="newNote">📝 Note</button>
+          <button role="menuitem" data-action="newDeal">💼 Deal</button>
+          <button role="menuitem" data-action="newAutomation">⚙︎ Automation</button>
+          <hr>
+          <button role="menuitem" data-action="inviteUser">➕ Invite user</button>
+        </menu>
+      </div>
+
+      <div class="right">
+        <div class="presence" id="presence" role="status" aria-label="Presence">
+          <span class="presence-dot" id="presenceDot" title="Status"></span>
+          <select id="presenceSelect" aria-label="Set status">
+            <option value="available">Available</option>
+            <option value="busy">Busy</option>
+            <option value="away">Away</option>
+            <option value="dnd">Do Not Disturb</option>
+          </select>
+        </div>
+
+        <button id="btnNotifications" class="icon-btn" aria-haspopup="dialog" aria-controls="notifPanel" aria-expanded="false" title="Notifications (Alt+Shift+N)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c1.1 0 2-.89 2-1.99h-4A2 2 0 0012 22zm6-6V9c0-3.07-1.64-5.64-4.5-6.32V2a1.5 1.5 0 10-3 0v.68C7.64 3.36 6 5.92 6 9v7l-2 2v1h16v-1l-2-2z"/></svg>
+          <span class="badge" id="notifCount" aria-label="Notifications count">0</span>
+        </button>
+
+        <div class="profile">
+          <select id="orgSelect" aria-label="Organization Switch">
+            <option value="my-org">My Organization</option>
+          </select>
+          <select id="roleSelect" aria-label="Role">
+            <option>Admin</option>
+            <option>Manager</option>
+            <option>Member</option>
+            <option>Client</option>
+          </select>
+          <button id="btnSettings" class="icon-btn" aria-haspopup="dialog" aria-controls="settingsPanel" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14,12.94a7.49,7.49,0,0,0,0-1.88l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.42,7.42,0,0,0-1.63-.95l-.38-2.65A.5.5,0,0,0,13.77,2H10.23a.5.5,0,0,0-.5.42L9.35,5.07a7.42,7.42,0,0,0-1.63.95l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L5,11.06a7.49,7.49,0,0,0,0,1.88L2.79,14.59a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.42,7.42,0,0,0,1.63.95l.38,2.65a.5.5,0,0,0,.5.42h3.54a.5.5,0,0,0,.5-.42l.38-2.65a7.42,7.42,0,0,0,1.63-.95l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- App Body -->
+    <div class="app-body">
+      <!-- Left Navigation (role-aware) -->
+      <nav id="sidebar" class="sidebar" aria-label="Primary">
+        <ul>
+          <li><a href="#/" data-roles="Admin,Manager,Member,Client" class="nav-link"><span>🏠</span> Home / Dashboard</a></li>
+
+          <li class="nav-section">Communication</li>
+          <li><a href="#/inbox" data-roles="Admin,Manager,Member" class="nav-link"><span>📥</span> Inbox</a></li>
+          <li><a href="#/chat" data-roles="Admin,Manager,Member" class="nav-link"><span>💬</span> Chat</a></li>
+
+          <li class="nav-section">Workspace</li>
+          <li><a href="#/workspace/projects" data-roles="Admin,Manager,Member" class="nav-link"><span>🗂</span> Projects</a></li>
+          <li><a href="#/workspace/my-tasks" data-roles="Admin,Manager,Member" class="nav-link"><span>✅</span> My Tasks</a></li>
+          <li><a href="#/workspace/boards" data-roles="Admin,Manager,Member" class="nav-link"><span>🧩</span> Boards</a></li>
+          <li><a href="#/workspace/timeline" data-roles="Admin,Manager,Member" class="nav-link"><span>📈</span> Timeline</a></li>
+          <li><a href="#/workspace/time" data-roles="Admin,Manager,Member" class="nav-link"><span>⏱</span> Time Tracking</a></li>
+          <li><a href="#/workspace/automations" data-roles="Admin,Manager,Member" class="nav-link"><span>⚙️</span> Automations</a></li>
+          <li><a href="#/workspace/files" data-roles="Admin,Manager,Member" class="nav-link"><span>🗃</span> Files</a></li>
+
+          <li class="nav-section">Life & Scheduling</li>
+          <li><a href="#/calendar" data-roles="Admin,Manager,Member" class="nav-link"><span>📅</span> Calendar</a></li>
+          <li><a href="#/notes" data-roles="Admin,Manager,Member" class="nav-link"><span>📝</span> Notes</a></li>
+
+          <li class="nav-section">Clients & Business</li>
+          <li><a href="#/clients/crm" data-roles="Admin,Manager" class="nav-link"><span>📊</span> CRM</a></li>
+          <li><a href="#/clients/onboarding" data-roles="Admin,Manager" class="nav-link"><span>🧭</span> Onboarding</a></li>
+          <li><a href="#/clients/sequences" data-roles="Admin,Manager" class="nav-link"><span>🔁</span> Sequences</a></li>
+          <li><a href="#/clients/brand-dna" data-roles="Admin,Manager" class="nav-link"><span>🧬</span> Brand DNA</a></li>
+          <li><a href="#/clients/billing" data-roles="Admin,Manager" class="nav-link"><span>💳</span> Billing</a></li>
+
+          <li class="nav-section">Add‑Ons</li>
+          <li><a href="#/twin" data-roles="Admin,Manager,Member" class="nav-link"><span>🗺</span> Digital Twin</a></li>
+          <li><a href="#/reports" data-roles="Admin,Manager" class="nav-link"><span>📈</span> Reports</a></li>
+          <li><a href="#/admin" data-roles="Admin" class="nav-link"><span>🛡</span> Admin</a></li>
+
+          <li class="nav-section">External</li>
+          <li><a href="#/client-portal" data-roles="Client" class="nav-link"><span>🔒</span> Client Portal</a></li>
+        </ul>
+      </nav>
+
+      <!-- Main Content -->
+      <main id="main" class="main" role="main" tabindex="-1">
+        <!-- HOME / DASHBOARD -->
+        <section data-route="/" class="route active" aria-labelledby="homeTitle">
+          <h1 id="homeTitle" class="visually-hidden">Home</h1>
+          <div class="dashboard">
+            <div class="dash-row">
+              <section class="card big" aria-labelledby="todayTitle">
+                <header><h2 id="todayTitle">Today</h2></header>
+                <div class="grid-3">
+                  <div>
+                    <h3>My Tasks</h3>
+                    <ul id="homeMyTasks" class="list"></ul>
+                    <button class="btn sm" data-nav="#/workspace/my-tasks">Open My Tasks</button>
+                  </div>
+                  <div>
+                    <h3>Calendar</h3>
+                    <ul id="homeEvents" class="list"></ul>
+                    <button class="btn sm" data-nav="#/calendar">Open Calendar</button>
+                  </div>
+                  <div>
+                    <h3>Inbox Triage</h3>
+                    <ul id="homeInbox" class="list"></ul>
+                    <button class="btn sm" data-nav="#/inbox">Open Inbox</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="dash-row">
+              <section class="card" aria-labelledby="kpiTitle">
+                <header><h2 id="kpiTitle">Team KPIs</h2></header>
+                <div id="kpiWrap" class="kpis">
+                  <div class="kpi"><div class="kpi-num" id="kpiRevenue">—</div><div class="kpi-label">Revenue (MTD)</div></div>
+                  <div class="kpi"><div class="kpi-num" id="kpiUtilization">—</div><div class="kpi-label">Utilization</div></div>
+                  <div class="kpi"><div class="kpi-num" id="kpiCSAT">—</div><div class="kpi-label">CSAT</div></div>
+                  <div class="kpi"><div class="kpi-num" id="kpiCycle">—</div><div class="kpi-label">Cycle Time</div></div>
+                </div>
+              </section>
+              <section class="card" aria-labelledby="quickTitle">
+                <header><h2 id="quickTitle">Quick Actions</h2></header>
+                <div class="btn-row">
+                  <button class="btn" data-action="quickCompose">Compose</button>
+                  <button class="btn" data-action="quickNewTask">New Task</button>
+                  <button class="btn" data-action="quickLogTime">Log Time</button>
+                  <button class="btn" data-action="quickCreateEvent">Create Event</button>
+                  <button class="btn" data-action="quickStartMeeting">Start Meeting</button>
+                </div>
+              </section>
+              <section class="card" aria-labelledby="assistTitle">
+                <header><h2 id="assistTitle">Assistant</h2></header>
+                <div class="assistant">
+                  <button class="btn" data-action="assistSummary">Summarize my day</button>
+                  <button class="btn" data-action="assistPlan">Plan next 2 hours</button>
+                  <div id="assistantOut" class="assistant-out" aria-live="polite"></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- INBOX -->
+        <section data-route="/inbox" class="route" aria-labelledby="inboxTitle">
+          <h1 id="inboxTitle" class="visually-hidden">Unified Inbox</h1>
+          <div class="three-col">
+            <!-- Left: folders / filters -->
+            <aside class="panel left-panel">
+              <div class="panel-header">
+                <h2>Folders & Filters</h2>
+              </div>
+              <div class="filters">
+                <button class="chip active" data-filter="all">All</button>
+                <button class="chip" data-filter="unread">Unread</button>
+                <button class="chip" data-filter="mentions">Mentions</button>
+                <button class="chip" data-filter="assigned">Assigned</button>
+              </div>
+              <div class="divider"></div>
+              <div>
+                <h3 class="panel-sub">Smart Views</h3>
+                <ul id="smartViews" class="list"></ul>
+              </div>
+            </aside>
+
+            <!-- Main: list + thread -->
+            <div class="panel main-panel">
+              <div class="split two">
+                <div class="inbox-list" id="inboxList" role="listbox" aria-label="Messages list"></div>
+                <div class="thread-view" id="threadView" aria-live="polite">
+                  <div class="thread-empty">Select a message to view the thread.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: context panel -->
+            <aside class="panel right-panel" id="contextPanel" aria-label="Context Panel" hidden>
+              <div class="panel-header">
+                <h2>Details</h2>
+                <button class="icon-btn sm" id="btnCloseContext" aria-label="Close details">&times;</button>
+              </div>
+              <div id="contextContent" class="context-content"></div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- CHAT -->
+        <section data-route="/chat" class="route" aria-labelledby="chatTitle">
+          <h1 id="chatTitle" class="visually-hidden">Chat</h1>
+          <div class="three-col">
+            <aside class="panel left-panel">
+              <div class="panel-header"><h2>Conversations</h2></div>
+              <div id="chatList" class="list selectable"></div>
+            </aside>
+            <div class="panel main-panel">
+              <div id="chatMessages" class="messages"></div>
+              <div class="composer">
+                <input id="chatInput" type="text" placeholder="Message #general or @someone…" aria-label="Chat input">
+                <div class="composer-actions">
+                  <input type="file" id="chatFile" aria-label="Attach file" hidden>
+                  <button class="icon-btn" id="chatAttach" title="Attach file">📎</button>
+                  <button class="icon-btn" id="chatRecord" title="Record voice note">🎙</button>
+                  <button class="btn primary" id="chatSend">Send</button>
+                </div>
+              </div>
+            </div>
+            <aside class="panel right-panel" id="chatContext" aria-label="Members & Info" hidden>
+              <div class="panel-header"><h2>Channel Info</h2><button class="icon-btn sm" id="btnCloseChatContext">&times;</button></div>
+              <div id="chatInfo"></div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- WORKSPACE: PROJECTS -->
+        <section data-route="/workspace/projects" class="route" aria-labelledby="projectsTitle">
+          <h1 id="projectsTitle" class="visually-hidden">Projects</h1>
+          <div class="toolbar">
+            <input type="search" id="projectSearch" placeholder="Search projects…">
+            <button class="btn" id="btnNewProject">New Project</button>
+          </div>
+          <div id="projectsGrid" class="grid-cards"></div>
+        </section>
+
+        <!-- WORKSPACE: MY TASKS -->
+        <section data-route="/workspace/my-tasks" class="route" aria-labelledby="myTasksTitle">
+          <h1 id="myTasksTitle" class="visually-hidden">My Tasks</h1>
+          <div class="buckets">
+            <div class="bucket" data-bucket="today">
+              <header>Today</header>
+              <ul class="task-list" id="bucketToday"></ul>
+            </div>
+            <div class="bucket" data-bucket="next">
+              <header>Next</header>
+              <ul class="task-list" id="bucketNext"></ul>
+            </div>
+            <div class="bucket" data-bucket="later">
+              <header>Later</header>
+              <ul class="task-list" id="bucketLater"></ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- WORKSPACE: TIMELINE (placeholder, links to project timeline) -->
+        <section data-route="/workspace/timeline" class="route">
+          <div class="card">
+            <header><h2>Timeline</h2></header>
+            <p>Select a project to view its timeline.</p>
+          </div>
+        </section>
+
+        <!-- WORKSPACE: BOARDS (simple kanban across all tasks) -->
+        <section data-route="/workspace/boards" class="route">
+          <div class="kanban">
+            <div class="kan-col" data-status="todo"><header>To Do</header><div class="kan-items" id="kanTodo"></div></div>
+            <div class="kan-col" data-status="doing"><header>In Progress</header><div class="kan-items" id="kanDoing"></div></div>
+            <div class="kan-col" data-status="done"><header>Done</header><div class="kan-items" id="kanDone"></div></div>
+          </div>
+        </section>
+
+        <!-- WORKSPACE: TIME -->
+        <section data-route="/workspace/time" class="route" aria-labelledby="timeTitle">
+          <h1 id="timeTitle" class="visually-hidden">Time Tracking</h1>
+          <div class="card">
+            <header><h2>Timer</h2></header>
+            <div class="timer">
+              <select id="timerTask"></select>
+              <button class="btn" id="btnTimerStart">Start</button>
+              <button class="btn" id="btnTimerStop" disabled>Stop</button>
+              <span id="timerDisplay">00:00:00</span>
+            </div>
+          </div>
+          <div class="card">
+            <header><h2>Entries</h2></header>
+            <table class="table" id="timeEntries">
+              <thead><tr><th>Task</th><th>Started</th><th>Ended</th><th>Duration</th><th>Billable</th><th>Memo</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div class="btn-row">
+              <button class="btn sm" id="btnExportCSV">Export CSV</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- WORKSPACE: AUTOMATIONS -->
+        <section data-route="/workspace/automations" class="route" aria-labelledby="autoTitle">
+          <h1 id="autoTitle" class="visually-hidden">Automations</h1>
+          <div class="grid-2">
+            <div class="card">
+              <header><h2>Rules</h2></header>
+              <ul id="rulesList" class="list"></ul>
+              <div class="btn-row">
+                <button class="btn" id="btnNewRule">New Rule</button>
+              </div>
+            </div>
+            <div class="card">
+              <header><h2>Editor</h2></header>
+              <form id="ruleForm" class="form">
+                <label>Trigger
+                  <select id="ruleTrigger">
+                    <option value="message.received">message.received</option>
+                    <option value="message.mentioned">message.mentioned</option>
+                    <option value="task.created">task.created</option>
+                    <option value="task.updated">task.updated</option>
+                    <option value="event.created">event.created</option>
+                    <option value="invoice.overdue">invoice.overdue</option>
+                    <option value="desk.booked">desk.booked</option>
+                  </select>
+                </label>
+                <label>Conditions (JSON)
+                  <textarea id="ruleConditions" rows="6" spellcheck="false" placeholder='{"type":"email"}'></textarea>
+                </label>
+                <label>Actions (JSON array)
+                  <textarea id="ruleActions" rows="6" spellcheck="false" placeholder='[{"type":"notify","users":["@team"],"message":"New item"}]'></textarea>
+                </label>
+                <div class="form-row">
+                  <label><input type="checkbox" id="ruleEnabled" checked> Enabled</label>
+                </div>
+                <div class="btn-row">
+                  <button class="btn" id="btnSaveRule">Save</button>
+                  <button class="btn" id="btnTestRule">Dry Run</button>
+                </div>
+              </form>
+              <pre id="ruleOutput" class="code" aria-live="polite"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- CALENDAR -->
+        <section data-route="/calendar" class="route" aria-labelledby="calTitle">
+          <h1 id="calTitle" class="visually-hidden">Calendar</h1>
+          <div class="toolbar">
+            <div class="btn-group" role="group" aria-label="Calendar views">
+              <button class="btn sm" data-calview="month">Month</button>
+              <button class="btn sm" data-calview="week">Week</button>
+              <button class="btn sm" data-calview="day">Day</button>
+            </div>
+            <div class="spacer"></div>
+            <button class="btn" id="btnNewEvent">New Event</button>
+          </div>
+          <div id="calendar" class="calendar"></div>
+        </section>
+
+        <!-- NOTES -->
+        <section data-route="/notes" class="route" aria-labelledby="notesTitle">
+          <h1 id="notesTitle" class="visually-hidden">Notes</h1>
+          <div class="grid-2">
+            <div class="card">
+              <header><h2>Notebook</h2></header>
+              <ul id="notesList" class="list selectable"></ul>
+              <div class="btn-row">
+                <button class="btn" id="btnNewNote">New Note</button>
+              </div>
+            </div>
+            <div class="card">
+              <header><h2>Editor</h2></header>
+              <input id="noteTitle" class="input" type="text" placeholder="Note title">
+              <div id="noteEditor" class="note-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Note editor"></div>
+              <div class="btn-row">
+                <button class="btn sm" id="btnExtractTasks">Extract Tasks</button>
+                <button class="btn sm" id="btnTagNote">Add Tag</button>
+                <button class="btn sm" id="btnSaveNote">Save</button>
+              </div>
+              <div id="noteMeta" class="muted"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CLIENTS: CRM -->
+        <section data-route="/clients/crm" class="route" aria-labelledby="crmTitle">
+          <h1 id="crmTitle" class="visually-hidden">CRM</h1>
+          <div class="kanban crm">
+            <div class="kan-col" data-stage="lead"><header>Lead</header><div class="kan-items" id="crmLead"></div></div>
+            <div class="kan-col" data-stage="qualified"><header>Qualified</header><div class="kan-items" id="crmQualified"></div></div>
+            <div class="kan-col" data-stage="proposal"><header>Proposal</header><div class="kan-items" id="crmProposal"></div></div>
+            <div class="kan-col" data-stage="won"><header>Won</header><div class="kan-items" id="crmWon"></div></div>
+            <div class="kan-col" data-stage="lost"><header>Lost</header><div class="kan-items" id="crmLost"></div></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btnNewDeal">New Deal</button>
+          </div>
+        </section>
+
+        <!-- CLIENTS: ONBOARDING -->
+        <section data-route="/clients/onboarding" class="route">
+          <div class="card">
+            <header><h2>Client Onboarding</h2></header>
+            <form id="onboardForm" class="form">
+              <div class="form-row">
+                <label>Client Name <input type="text" id="onbName" required></label>
+                <label>Contact Email <input type="email" id="onbEmail" required></label>
+              </div>
+              <label>Project Goals <textarea id="onbGoals" rows="3"></textarea></label>
+              <label>Brand Essence <textarea id="onbBrand" rows="3" placeholder="Tone, voice, audience…"></textarea></label>
+              <div class="btn-row"><button class="btn" id="btnGenerateBrief">Generate Brief</button></div>
+            </form>
+            <div id="onbOutputs" class="grid-3" hidden>
+              <section class="card"><header><h3>Project Brief</h3></header><pre class="code" id="onbBrief"></pre></section>
+              <section class="card"><header><h3>Initial Task List</h3></header><ul id="onbTasks" class="list"></ul></section>
+              <section class="card"><header><h3>Welcome Message</h3></header><pre class="code" id="onbWelcome"></pre></section>
+            </div>
+          </div>
+        </section>
+
+        <!-- CLIENTS: SEQUENCES -->
+        <section data-route="/clients/sequences" class="route">
+          <div class="grid-2">
+            <div class="card">
+              <header><h2>Sequences</h2></header>
+              <ul id="seqList" class="list"></ul>
+              <div class="btn-row"><button class="btn" id="btnNewSequence">New Sequence</button></div>
+            </div>
+            <div class="card">
+              <header><h2>Editor</h2></header>
+              <form id="seqForm" class="form">
+                <label>Name <input id="seqName" type="text" required></label>
+                <label>Steps (JSON)
+                  <textarea id="seqSteps" rows="8" spellcheck="false" placeholder='[{"afterHours":0,"type":"email","template":"Thanks for your interest!"}]'></textarea>
+                </label>
+                <div class="btn-row">
+                  <button class="btn" id="btnSaveSequence">Save</button>
+                  <button class="btn" id="btnTestSequence">Simulate</button>
+                </div>
+              </form>
+              <pre id="seqOut" class="code" aria-live="polite"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- CLIENTS: BRAND DNA -->
+        <section data-route="/clients/brand-dna" class="route">
+          <div class="grid-2">
+            <div class="card">
+              <header><h2>Brand DNA Profile</h2></header>
+              <form id="dnaForm" class="form">
+                <label>Mission <textarea id="dnaMission" rows="3"></textarea></label>
+                <label>Tone (sliders)</label>
+                <div class="form-row sliders">
+                  <label>Formal <input type="range" id="dnaFormal" min="0" max="100" value="50"></label>
+                  <label>Playful <input type="range" id="dnaPlayful" min="0" max="100" value="50"></label>
+                  <label>Enthusiastic <input type="range" id="dnaEnth" min="0" max="100" value="50"></label>
+                </div>
+                <label>Banned Words <input type="text" id="dnaBanned" placeholder="comma,separated"></label>
+                <div class="btn-row"><button class="btn" id="btnSaveDNA">Save</button></div>
+              </form>
+            </div>
+            <div class="card">
+              <header><h2>Preview & Guardrails</h2></header>
+              <textarea id="dnaSample" rows="5" placeholder="Type sample copy…"></textarea>
+              <div class="btn-row"><button class="btn" id="btnApplyDNA">Apply DNA</button></div>
+              <pre id="dnaOut" class="code"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- CLIENTS: BILLING -->
+        <section data-route="/clients/billing" class="route">
+          <div class="card">
+            <header><h2>Invoices</h2></header>
+            <table class="table" id="invoiceTable">
+              <thead><tr><th>#</th><th>Client</th><th>Amount</th><th>Status</th><th>Due</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <header><h2>Subscriptions</h2></header>
+            <table class="table" id="subsTable">
+              <thead><tr><th>Client</th><th>Plan</th><th>Status</th><th>Started</th><th>Cancel At</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- DIGITAL TWIN -->
+        <section data-route="/twin" class="route">
+          <div class="card">
+            <header><h2>Office Map & Booking</h2></header>
+            <div id="deskLegend" class="legend">
+              <span class="chip">Available</span>
+              <span class="chip busy">Booked</span>
+              <span class="chip me">Mine</span>
+            </div>
+            <div id="deskGrid" class="desk-grid" role="grid" aria-label="Desk map"></div>
+          </div>
+        </section>
+
+        <!-- REPORTS -->
+        <section data-route="/reports" class="route">
+          <div class="grid-3">
+            <div class="card">
+              <header><h2>Velocity</h2></header>
+              <div class="bar-chart" id="repVelocity"></div>
+            </div>
+            <div class="card">
+              <header><h2>Utilization</h2></header>
+              <div class="bar-chart" id="repUtilization"></div>
+            </div>
+            <div class="card">
+              <header><h2>Inbox Response Time</h2></header>
+              <div class="bar-chart" id="repInbox"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ADMIN -->
+        <section data-route="/admin" class="route">
+          <div class="grid-2">
+            <div class="card">
+              <header><h2>Organization & Theme</h2></header>
+              <form id="themeForm" class="form">
+                <label>Theme Color <input type="color" id="themePrimary" value="#4f46e5"></label>
+                <label>Wallpaper <select id="wallpaperSelect">
+                  <option value="none">None</option>
+                  <option value="gradient">Gradient</option>
+                  <option value="dots">Dots</option>
+                </select></label>
+                <label>Density <select id="densitySelect">
+                  <option value="comfortable">Comfortable</option>
+                  <option value="compact">Compact</option>
+                </select></label>
+                <label>High Contrast <input type="checkbox" id="highContrast"></label>
+                <div class="btn-row"><button class="btn" id="btnSaveTheme">Save</button></div>
+              </form>
+            </div>
+            <div class="card">
+              <header><h2>Notification Sounds</h2></header>
+              <div class="btn-row">
+                <button class="btn sm" data-sound="default">Play Default</button>
+                <button class="btn sm" data-sound="priority">Play Priority</button>
+                <button class="btn sm" data-sound="dm">Play DM</button>
+                <button class="btn sm" data-sound="mention">Play Mention</button>
+                <button class="btn sm" data-sound="taskDue">Play Task Due</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CLIENT PORTAL (read-only illustration) -->
+        <section data-route="/client-portal" class="route">
+          <div class="card">
+            <header><h2>Client Portal</h2></header>
+            <p>Read-only project snapshots and approvals appear here based on access.</p>
+          </div>
+        </section>
+      </main>
+
+      <!-- Right Rail (global) handled per-route -->
+
+    </div><!-- /app-body -->
+  </div><!-- /app-shell -->
+
+  <!-- Notifications Panel -->
+  <aside id="notifPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="notifTitle" hidden>
+    <header class="sheet-header">
+      <h2 id="notifTitle">Notifications</h2>
+      <button class="icon-btn" id="btnCloseNotif" aria-label="Close">&times;</button>
+    </header>
+    <div id="notifGroups" class="sheet-body"></div>
+  </aside>
+
+  <!-- Command Palette -->
+  <dialog id="cmdk" class="cmdk" aria-label="Command Palette" aria-modal="true">
+    <form id="cmdkForm" method="dialog" class="cmdk-inner">
+      <input id="cmdkInput" type="text" placeholder="Type a command…" aria-label="Command input" autocomplete="off">
+      <ul id="cmdkList" class="cmdk-list" role="listbox" aria-label="Command list"></ul>
+      <div class="cmdk-hint">↑↓ to navigate • Enter to run • Esc to close</div>
+    </form>
+  </dialog>
+
+  <!-- Settings Panel (simple) -->
+  <aside id="settingsPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="settingsTitle" hidden>
+    <header class="sheet-header">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn" id="btnCloseSettings" aria-label="Close">&times;</button>
+    </header>
+    <div class="sheet-body">
+      <p>Use Admin → Organization & Theme to customize theme, density, contrast, and wallpaper.</p>
+      <p>Role-aware navigation is driven by the Role selector in the top bar.</p>
+      <p>Keyboard: / search • ⌘K command • E compose • N new task • G then I go inbox.</p>
+    </div>
+  </aside>
+
+  <!-- Toasts -->
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
