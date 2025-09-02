@@ -1,626 +1,399 @@
-<!DOCTYPE html>
-<html lang="en" data-density="comfortable">
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Perfect Unified — Project Unified Prototype</title>
-  <meta name="description" content="Perfect Unified: A unified digital ecosystem prototype (HTML + CSS + JS)">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Project Unified — One dashboard for everything</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:,">
 </head>
 <body>
-  <!-- App Shell -->
-  <div id="app" class="app-shell">
-    <!-- Top Bar -->
-    <header class="topbar" role="banner" aria-label="Top application bar">
-      <div class="left">
-        <button class="icon-btn" id="btnSidebar" aria-label="Toggle navigation" title="Toggle navigation (Alt+S)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3zM3 11h12v2H3zM3 16h18v2H3z"/></svg>
-        </button>
-        <a href="#/" class="logo" aria-label="Go to Home">
-          <span class="logo-mark">PU</span>
-          <span class="logo-text">Perfect Unified</span>
-        </a>
+
+  <!-- Decorative background (bokeh dots) -->
+  <div class="bg-bokeh" aria-hidden="true"></div>
+
+  <!-- Header: matches your screenshot structure -->
+  <header class="site-header">
+    <div class="nav-shell">
+      <div class="nav-left">
+        <a href="#/" class="brand"><span>Project</span> Unified</a>
       </div>
 
-      <div class="center">
-        <button id="cmdkBtn" class="cmdk-btn" aria-haspopup="dialog" aria-controls="cmdk" title="Command Palette (Ctrl/Cmd + K)">
-          ⌘K
-        </button>
-        <div class="search-wrap" role="search">
-          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-          <input id="globalSearch" type="search" placeholder="Search messages, tasks, files, notes…" aria-label="Global Search (/)">
-          <div id="searchResults" class="search-results" role="listbox" aria-label="Search results" hidden></div>
-        </div>
-        <div class="divider"></div>
-        <button id="btnNew" class="btn primary" aria-haspopup="menu" aria-expanded="false" aria-controls="newMenu" title="New (Alt+N)">New</button>
-        <menu id="newMenu" class="menu" role="menu" hidden>
-          <button role="menuitem" data-action="newEmail">✉︎ Email</button>
-          <button role="menuitem" data-action="newTask">☑︎ Task</button>
-          <button role="menuitem" data-action="newEvent">📅 Event</button>
-          <button role="menuitem" data-action="newNote">📝 Note</button>
-          <button role="menuitem" data-action="newDeal">💼 Deal</button>
-          <button role="menuitem" data-action="newAutomation">⚙︎ Automation</button>
-          <hr>
-          <button role="menuitem" data-action="inviteUser">➕ Invite user</button>
-        </menu>
-      </div>
-
-      <div class="right">
-        <div class="presence" id="presence" role="status" aria-label="Presence">
-          <span class="presence-dot" id="presenceDot" title="Status"></span>
-          <select id="presenceSelect" aria-label="Set status">
-            <option value="available">Available</option>
-            <option value="busy">Busy</option>
-            <option value="away">Away</option>
-            <option value="dnd">Do Not Disturb</option>
-          </select>
-        </div>
-
-        <button id="btnNotifications" class="icon-btn" aria-haspopup="dialog" aria-controls="notifPanel" aria-expanded="false" title="Notifications (Alt+Shift+N)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c1.1 0 2-.89 2-1.99h-4A2 2 0 0012 22zm6-6V9c0-3.07-1.64-5.64-4.5-6.32V2a1.5 1.5 0 10-3 0v.68C7.64 3.36 6 5.92 6 9v7l-2 2v1h16v-1l-2-2z"/></svg>
-          <span class="badge" id="notifCount" aria-label="Notifications count">0</span>
-        </button>
-
-        <div class="profile">
-          <select id="orgSelect" aria-label="Organization Switch">
-            <option value="my-org">My Organization</option>
-          </select>
-          <select id="roleSelect" aria-label="Role">
-            <option>Admin</option>
-            <option>Manager</option>
-            <option>Member</option>
-            <option>Client</option>
-          </select>
-          <button id="btnSettings" class="icon-btn" aria-haspopup="dialog" aria-controls="settingsPanel" title="Settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14,12.94a7.49,7.49,0,0,0,0-1.88l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.42,7.42,0,0,0-1.63-.95l-.38-2.65A.5.5,0,0,0,13.77,2H10.23a.5.5,0,0,0-.5.42L9.35,5.07a7.42,7.42,0,0,0-1.63.95l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L5,11.06a7.49,7.49,0,0,0,0,1.88L2.79,14.59a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.42,7.42,0,0,0,1.63.95l.38,2.65a.5.5,0,0,0,.5.42h3.54a.5.5,0,0,0,.5-.42l.38-2.65a7.42,7.42,0,0,0,1.63-.95l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- App Body -->
-    <div class="app-body">
-      <!-- Left Navigation (role-aware) -->
-      <nav id="sidebar" class="sidebar" aria-label="Primary">
-        <ul>
-          <li><a href="#/" data-roles="Admin,Manager,Member,Client" class="nav-link"><span>🏠</span> Home / Dashboard</a></li>
-
-          <li class="nav-section">Communication</li>
-          <li><a href="#/inbox" data-roles="Admin,Manager,Member" class="nav-link"><span>📥</span> Inbox</a></li>
-          <li><a href="#/chat" data-roles="Admin,Manager,Member" class="nav-link"><span>💬</span> Chat</a></li>
-
-          <li class="nav-section">Workspace</li>
-          <li><a href="#/workspace/projects" data-roles="Admin,Manager,Member" class="nav-link"><span>🗂</span> Projects</a></li>
-          <li><a href="#/workspace/my-tasks" data-roles="Admin,Manager,Member" class="nav-link"><span>✅</span> My Tasks</a></li>
-          <li><a href="#/workspace/boards" data-roles="Admin,Manager,Member" class="nav-link"><span>🧩</span> Boards</a></li>
-          <li><a href="#/workspace/timeline" data-roles="Admin,Manager,Member" class="nav-link"><span>📈</span> Timeline</a></li>
-          <li><a href="#/workspace/time" data-roles="Admin,Manager,Member" class="nav-link"><span>⏱</span> Time Tracking</a></li>
-          <li><a href="#/workspace/automations" data-roles="Admin,Manager,Member" class="nav-link"><span>⚙️</span> Automations</a></li>
-          <li><a href="#/workspace/files" data-roles="Admin,Manager,Member" class="nav-link"><span>🗃</span> Files</a></li>
-
-          <li class="nav-section">Life & Scheduling</li>
-          <li><a href="#/calendar" data-roles="Admin,Manager,Member" class="nav-link"><span>📅</span> Calendar</a></li>
-          <li><a href="#/notes" data-roles="Admin,Manager,Member" class="nav-link"><span>📝</span> Notes</a></li>
-
-          <li class="nav-section">Clients & Business</li>
-          <li><a href="#/clients/crm" data-roles="Admin,Manager" class="nav-link"><span>📊</span> CRM</a></li>
-          <li><a href="#/clients/onboarding" data-roles="Admin,Manager" class="nav-link"><span>🧭</span> Onboarding</a></li>
-          <li><a href="#/clients/sequences" data-roles="Admin,Manager" class="nav-link"><span>🔁</span> Sequences</a></li>
-          <li><a href="#/clients/brand-dna" data-roles="Admin,Manager" class="nav-link"><span>🧬</span> Brand DNA</a></li>
-          <li><a href="#/clients/billing" data-roles="Admin,Manager" class="nav-link"><span>💳</span> Billing</a></li>
-
-          <li class="nav-section">Add‑Ons</li>
-          <li><a href="#/twin" data-roles="Admin,Manager,Member" class="nav-link"><span>🗺</span> Digital Twin</a></li>
-          <li><a href="#/reports" data-roles="Admin,Manager" class="nav-link"><span>📈</span> Reports</a></li>
-          <li><a href="#/admin" data-roles="Admin" class="nav-link"><span>🛡</span> Admin</a></li>
-
-          <li class="nav-section">External</li>
-          <li><a href="#/client-portal" data-roles="Client" class="nav-link"><span>🔒</span> Client Portal</a></li>
-        </ul>
+      <nav class="nav-center" aria-label="Primary">
+        <a href="#/problem"    class="nav-link">Problem</a>
+        <a href="#/solution"   class="nav-link">Solution</a>
+        <a href="#/integrations" class="nav-link">Integrations</a>
+        <a href="#/advantages" class="nav-link">Advantages</a>
       </nav>
 
-      <!-- Main Content -->
-      <main id="main" class="main" role="main" tabindex="-1">
-        <!-- HOME / DASHBOARD -->
-        <section data-route="/" class="route active" aria-labelledby="homeTitle">
-          <h1 id="homeTitle" class="visually-hidden">Home</h1>
-          <div class="dashboard">
-            <div class="dash-row">
-              <section class="card big" aria-labelledby="todayTitle">
-                <header><h2 id="todayTitle">Today</h2></header>
-                <div class="grid-3">
-                  <div>
-                    <h3>My Tasks</h3>
-                    <ul id="homeMyTasks" class="list"></ul>
-                    <button class="btn sm" data-nav="#/workspace/my-tasks">Open My Tasks</button>
-                  </div>
-                  <div>
-                    <h3>Calendar</h3>
-                    <ul id="homeEvents" class="list"></ul>
-                    <button class="btn sm" data-nav="#/calendar">Open Calendar</button>
-                  </div>
-                  <div>
-                    <h3>Inbox Triage</h3>
-                    <ul id="homeInbox" class="list"></ul>
-                    <button class="btn sm" data-nav="#/inbox">Open Inbox</button>
-                  </div>
-                </div>
-              </section>
-            </div>
+      <div class="nav-right">
+        <button class="btn btn-ghost" id="openLogin">Login</button>
+        <button class="btn btn-dark"  id="openSignup">Signup</button>
+        <button class="nav-hamburger" id="openMobileNav" aria-label="Menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
 
-            <div class="dash-row">
-              <section class="card" aria-labelledby="kpiTitle">
-                <header><h2 id="kpiTitle">Team KPIs</h2></header>
-                <div id="kpiWrap" class="kpis">
-                  <div class="kpi"><div class="kpi-num" id="kpiRevenue">—</div><div class="kpi-label">Revenue (MTD)</div></div>
-                  <div class="kpi"><div class="kpi-num" id="kpiUtilization">—</div><div class="kpi-label">Utilization</div></div>
-                  <div class="kpi"><div class="kpi-num" id="kpiCSAT">—</div><div class="kpi-label">CSAT</div></div>
-                  <div class="kpi"><div class="kpi-num" id="kpiCycle">—</div><div class="kpi-label">Cycle Time</div></div>
-                </div>
-              </section>
-              <section class="card" aria-labelledby="quickTitle">
-                <header><h2 id="quickTitle">Quick Actions</h2></header>
-                <div class="btn-row">
-                  <button class="btn" data-action="quickCompose">Compose</button>
-                  <button class="btn" data-action="quickNewTask">New Task</button>
-                  <button class="btn" data-action="quickLogTime">Log Time</button>
-                  <button class="btn" data-action="quickCreateEvent">Create Event</button>
-                  <button class="btn" data-action="quickStartMeeting">Start Meeting</button>
-                </div>
-              </section>
-              <section class="card" aria-labelledby="assistTitle">
-                <header><h2 id="assistTitle">Assistant</h2></header>
-                <div class="assistant">
-                  <button class="btn" data-action="assistSummary">Summarize my day</button>
-                  <button class="btn" data-action="assistPlan">Plan next 2 hours</button>
-                  <div id="assistantOut" class="assistant-out" aria-live="polite"></div>
-                </div>
-              </section>
+    <!-- Mobile flyout -->
+    <nav class="mobile-nav" id="mobileNav" aria-label="Mobile">
+      <a href="#/problem"       class="m-link">Problem</a>
+      <a href="#/solution"      class="m-link">Solution</a>
+      <a href="#/integrations"  class="m-link">Integrations</a>
+      <a href="#/advantages"    class="m-link">Advantages</a>
+      <a href="#/features"      class="m-link">Features</a>
+      <a href="#/pricing"       class="m-link">Pricing</a>
+      <a href="#/case-studies"  class="m-link">Case Studies</a>
+      <a href="#/faq"           class="m-link">FAQ</a>
+      <a href="#/contact"       class="m-link">Contact</a>
+      <div class="m-actions">
+        <button class="btn btn-ghost" id="openLoginM">Login</button>
+        <button class="btn btn-dark"  id="openSignupM">Signup</button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main -->
+  <main id="app" class="app">
+
+    <!-- 1) HOME / Landing -->
+    <section data-route="/" class="route">
+      <div class="container hero">
+        <h1>Unify your work. <span class="highlight">Accelerate everything.</span></h1>
+        <p class="lead">
+          Project Unified brings teams, tasks, automations, and data together in one beautiful
+          dashboard—so you can move faster with perfect clarity.
+        </p>
+        <div class="cta-row">
+          <button class="btn btn-dark" id="ctaSignup">Start free</button>
+          <a href="#/features" class="btn btn-ghost">Explore features</a>
+        </div>
+
+        <ul class="pill-stats">
+          <li><strong>10X</strong> faster onboarding</li>
+          <li><strong>360°</strong> unified view</li>
+          <li><strong>99.99%</strong> uptime</li>
+        </ul>
+      </div>
+
+      <div class="container section">
+        <h2>Why Project Unified?</h2>
+        <p>Fragmented tools slow you down. We merge everything into a single, secure workspace.</p>
+
+        <div class="feature-grid">
+          <article class="card">
+            <h3>Unified Workspace</h3>
+            <p>One place for projects, content, messaging, and analytics—no more switching tabs.</p>
+          </article>
+          <article class="card">
+            <h3>Role‑based Access</h3>
+            <p>Granular roles &amp; privileges ensure the right people see and control the right things.</p>
+          </article>
+          <article class="card">
+            <h3>Automations</h3>
+            <p>Trigger workflows across apps on events, schedules, or AI decisions in a few clicks.</p>
+          </article>
+          <article class="card">
+            <h3>Insights</h3>
+            <p>Dashboards, KPIs, and drill‑downs give you the “why” behind performance.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="container section alt">
+        <div class="two-col">
+          <div>
+            <h2>Connect your stack</h2>
+            <p>Plug in the tools you already use—Google, Microsoft, Slack, Stripe, Meta, TikTok, and more.</p>
+            <a href="#/integrations" class="btn">See all integrations</a>
+          </div>
+          <div class="illus-panel">
+            <div class="logo-cloud">
+              <span>Google</span><span>Slack</span><span>Stripe</span><span>Meta</span><span>TikTok</span><span>Reddit</span>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
 
-        <!-- INBOX -->
-        <section data-route="/inbox" class="route" aria-labelledby="inboxTitle">
-          <h1 id="inboxTitle" class="visually-hidden">Unified Inbox</h1>
-          <div class="three-col">
-            <!-- Left: folders / filters -->
-            <aside class="panel left-panel">
-              <div class="panel-header">
-                <h2>Folders & Filters</h2>
-              </div>
-              <div class="filters">
-                <button class="chip active" data-filter="all">All</button>
-                <button class="chip" data-filter="unread">Unread</button>
-                <button class="chip" data-filter="mentions">Mentions</button>
-                <button class="chip" data-filter="assigned">Assigned</button>
-              </div>
-              <div class="divider"></div>
-              <div>
-                <h3 class="panel-sub">Smart Views</h3>
-                <ul id="smartViews" class="list"></ul>
-              </div>
-            </aside>
+      <div class="container section">
+        <h2>Ready to unify?</h2>
+        <p>Join teams who replaced 6+ tools with one. Fewer logins. Fewer invoices. More impact.</p>
+        <button class="btn btn-dark" id="ctaSignup2">Create your account</button>
+      </div>
+    </section>
 
-            <!-- Main: list + thread -->
-            <div class="panel main-panel">
-              <div class="split two">
-                <div class="inbox-list" id="inboxList" role="listbox" aria-label="Messages list"></div>
-                <div class="thread-view" id="threadView" aria-live="polite">
-                  <div class="thread-empty">Select a message to view the thread.</div>
-                </div>
-              </div>
-            </div>
+    <!-- 2) PROBLEM -->
+    <section data-route="/problem" class="route" hidden>
+      <div class="container">
+        <h1>The problem: fragmented tools, fragmented focus</h1>
+        <p class="lead">Switching across apps costs time, context, and money. Data lives in silos, access is messy, and reporting is painful.</p>
 
-            <!-- Right: context panel -->
-            <aside class="panel right-panel" id="contextPanel" aria-label="Context Panel" hidden>
-              <div class="panel-header">
-                <h2>Details</h2>
-                <button class="icon-btn sm" id="btnCloseContext" aria-label="Close details">&times;</button>
-              </div>
-              <div id="contextContent" class="context-content"></div>
-            </aside>
+        <div class="problems">
+          <div class="card"><h3>Tool sprawl</h3><p>Different teams, different tools, duplicated costs and logins.</p></div>
+          <div class="card"><h3>Lost context</h3><p>Work happens in threads &amp; files scattered everywhere.</p></div>
+          <div class="card"><h3>Manual busywork</h3><p>Copy/paste &amp; status chasing steals hours daily.</p></div>
+          <div class="card"><h3>Blindspots</h3><p>KPIs require stitching reports together—often too late.</p></div>
+        </div>
+
+        <a href="#/solution" class="btn btn-dark">See our solution</a>
+      </div>
+    </section>
+
+    <!-- 3) SOLUTION -->
+    <section data-route="/solution" class="route" hidden>
+      <div class="container">
+        <h1>The solution: unify, automate, illuminate</h1>
+        <div class="two-col">
+          <div>
+            <h3>Unify</h3>
+            <p>One secure hub for projects, content, conversations, and credentials.</p>
+            <h3>Automate</h3>
+            <p>Use visual flows and AI to move work forward—no more manual glue.</p>
+            <h3>Illuminate</h3>
+            <p>Live dashboards and alerts keep teams aligned and proactive.</p>
           </div>
-        </section>
-
-        <!-- CHAT -->
-        <section data-route="/chat" class="route" aria-labelledby="chatTitle">
-          <h1 id="chatTitle" class="visually-hidden">Chat</h1>
-          <div class="three-col">
-            <aside class="panel left-panel">
-              <div class="panel-header"><h2>Conversations</h2></div>
-              <div id="chatList" class="list selectable"></div>
-            </aside>
-            <div class="panel main-panel">
-              <div id="chatMessages" class="messages"></div>
-              <div class="composer">
-                <input id="chatInput" type="text" placeholder="Message #general or @someone…" aria-label="Chat input">
-                <div class="composer-actions">
-                  <input type="file" id="chatFile" aria-label="Attach file" hidden>
-                  <button class="icon-btn" id="chatAttach" title="Attach file">📎</button>
-                  <button class="icon-btn" id="chatRecord" title="Record voice note">🎙</button>
-                  <button class="btn primary" id="chatSend">Send</button>
-                </div>
-              </div>
-            </div>
-            <aside class="panel right-panel" id="chatContext" aria-label="Members & Info" hidden>
-              <div class="panel-header"><h2>Channel Info</h2><button class="icon-btn sm" id="btnCloseChatContext">&times;</button></div>
-              <div id="chatInfo"></div>
-            </aside>
+          <div class="checklist">
+            <p>✔ Single source of truth</p>
+            <p>✔ Role-based permissions</p>
+            <p>✔ Multi‑platform integrations</p>
+            <p>✔ Structured approvals &amp; logs</p>
           </div>
-        </section>
+        </div>
+        <a href="#/features" class="btn">Explore all features</a>
+      </div>
+    </section>
 
-        <!-- WORKSPACE: PROJECTS -->
-        <section data-route="/workspace/projects" class="route" aria-labelledby="projectsTitle">
-          <h1 id="projectsTitle" class="visually-hidden">Projects</h1>
-          <div class="toolbar">
-            <input type="search" id="projectSearch" placeholder="Search projects…">
-            <button class="btn" id="btnNewProject">New Project</button>
+    <!-- 4) FEATURES -->
+    <section data-route="/features" class="route" hidden>
+      <div class="container">
+        <h1>Features that replace entire toolboxes</h1>
+        <div class="feature-grid big">
+          <article class="card"><h3>Projects &amp; Tasks</h3><p>Boards, calendars, dependencies, and SLAs.</p></article>
+          <article class="card"><h3>Documents &amp; Assets</h3><p>Versioning, approvals, OCR, and AI summaries.</p></article>
+          <article class="card"><h3>Messaging &amp; Notes</h3><p>Context stays with the work, not in scattered DMs.</p></article>
+          <article class="card"><h3>Forms &amp; CRM</h3><p>Leads to contracts with status automation.</p></article>
+          <article class="card"><h3>Automation</h3><p>Triggers across your stack with no-code builders.</p></article>
+          <article class="card"><h3>Analytics</h3><p>KPIs, attribution, cohort analysis, and alerts.</p></article>
+          <article class="card"><h3>Permissions</h3><p>Roles, privileges, audit trails, and SSO.</p></article>
+          <article class="card"><h3>Extensibility</h3><p>Webhooks, GraphQL/REST APIs, and SDKs.</p></article>
+        </div>
+        <div class="cta-row">
+          <a href="#/pricing" class="btn btn-dark">See pricing</a>
+          <a href="#/case-studies" class="btn btn-ghost">See case studies</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5) INTEGRATIONS -->
+    <section data-route="/integrations" class="route" hidden>
+      <div class="container">
+        <h1>Integrations</h1>
+        <p class="lead">Project Unified connects to your favorite apps to keep work flowing.</p>
+        <div class="logo-grid">
+          <span>Google</span><span>Microsoft</span><span>Slack</span><span>Zoom</span>
+          <span>Stripe</span><span>Shopify</span><span>Meta</span><span>TikTok</span>
+          <span>Reddit</span><span>LinkedIn</span><span>Twitter/X</span><span>Zapier</span>
+        </div>
+        <p>Need something custom? Build with our APIs in hours, not weeks.</p>
+      </div>
+    </section>
+
+    <!-- 6) ADVANTAGES -->
+    <section data-route="/advantages" class="route" hidden>
+      <div class="container">
+        <h1>Advantages</h1>
+        <div class="benefits">
+          <div class="benefit"><h3>Speed</h3><p>Launch in days, not quarters.</p></div>
+          <div class="benefit"><h3>Clarity</h3><p>Everything in one view; nothing slips.</p></div>
+          <div class="benefit"><h3>Control</h3><p>Powerful roles &amp; approvals keep data safe.</p></div>
+          <div class="benefit"><h3>Cost</h3><p>Replace 6+ subscriptions with one.</p></div>
+        </div>
+        <a href="#/faq" class="btn">Common questions</a>
+      </div>
+    </section>
+
+    <!-- 7) PRICING -->
+    <section data-route="/pricing" class="route" hidden>
+      <div class="container">
+        <h1>Simple, transparent pricing</h1>
+        <div class="price-grid">
+          <div class="price-card">
+            <h3>Starter</h3>
+            <p class="price">$0</p>
+            <ul><li>Up to 3 users</li><li>Boards &amp; tasks</li><li>2 integrations</li></ul>
+            <button class="btn btn-dark openSignupAuto">Get started</button>
           </div>
-          <div id="projectsGrid" class="grid-cards"></div>
-        </section>
-
-        <!-- WORKSPACE: MY TASKS -->
-        <section data-route="/workspace/my-tasks" class="route" aria-labelledby="myTasksTitle">
-          <h1 id="myTasksTitle" class="visually-hidden">My Tasks</h1>
-          <div class="buckets">
-            <div class="bucket" data-bucket="today">
-              <header>Today</header>
-              <ul class="task-list" id="bucketToday"></ul>
-            </div>
-            <div class="bucket" data-bucket="next">
-              <header>Next</header>
-              <ul class="task-list" id="bucketNext"></ul>
-            </div>
-            <div class="bucket" data-bucket="later">
-              <header>Later</header>
-              <ul class="task-list" id="bucketLater"></ul>
-            </div>
+          <div class="price-card popular">
+            <div class="badge">Most Popular</div>
+            <h3>Pro</h3>
+            <p class="price">$29<span>/user</span></p>
+            <ul><li>Unlimited projects</li><li>Automations</li><li>Analytics</li></ul>
+            <button class="btn btn-dark openSignupAuto">Try Pro</button>
           </div>
-        </section>
-
-        <!-- WORKSPACE: TIMELINE (placeholder, links to project timeline) -->
-        <section data-route="/workspace/timeline" class="route">
-          <div class="card">
-            <header><h2>Timeline</h2></header>
-            <p>Select a project to view its timeline.</p>
+          <div class="price-card">
+            <h3>Enterprise</h3>
+            <p class="price">Let’s talk</p>
+            <ul><li>SSO / SCIM</li><li>Custom SLAs</li><li>Dedicated support</li></ul>
+            <a href="#/contact" class="btn">Contact sales</a>
           </div>
-        </section>
+        </div>
+      </div>
+    </section>
 
-        <!-- WORKSPACE: BOARDS (simple kanban across all tasks) -->
-        <section data-route="/workspace/boards" class="route">
-          <div class="kanban">
-            <div class="kan-col" data-status="todo"><header>To Do</header><div class="kan-items" id="kanTodo"></div></div>
-            <div class="kan-col" data-status="doing"><header>In Progress</header><div class="kan-items" id="kanDoing"></div></div>
-            <div class="kan-col" data-status="done"><header>Done</header><div class="kan-items" id="kanDone"></div></div>
+    <!-- 8) CASE STUDIES -->
+    <section data-route="/case-studies" class="route" hidden>
+      <div class="container">
+        <h1>Case studies</h1>
+        <div class="cs-grid">
+          <article class="card">
+            <h3>Ridge & Co.</h3>
+            <p>Consolidated 9 tools into Project Unified and cut cycle time by 42%.</p>
+          </article>
+          <article class="card">
+            <h3>Nova Retail</h3>
+            <p>Unified ops and marketing data to drive 18% higher ROAS.</p>
+          </article>
+          <article class="card">
+            <h3>Orbit Health</h3>
+            <p>Achieved HIPAA‑ready workflows and automated compliance checks.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9) FAQ -->
+    <section data-route="/faq" class="route" hidden>
+      <div class="container">
+        <h1>Frequently asked questions</h1>
+        <details class="faq"><summary>How long does setup take?</summary><p>Most teams launch within a week—Enterprise projects vary.</p></details>
+        <details class="faq"><summary>Can I import from other tools?</summary><p>Yes—CSV importers and direct connectors are built in.</p></details>
+        <details class="faq"><summary>Do you offer SSO?</summary><p>SSO/SCIM are available on Enterprise.</p></details>
+        <details class="faq"><summary>Is my data safe?</summary><p>We follow industry best practices: encryption at rest and in transit, RBAC, audit logs, and backups.</p></details>
+      </div>
+    </section>
+
+    <!-- 10) CONTACT -->
+    <section data-route="/contact" class="route" hidden>
+      <div class="container">
+        <h1>Contact &amp; Support</h1>
+        <p>Questions? Looking for a tailored rollout? We’re here to help.</p>
+        <form class="contact-form" id="contactForm">
+          <div class="form-row">
+            <label>Full name<input type="text" id="cName" required></label>
+            <label>Email<input type="email" id="cEmail" required></label>
           </div>
-        </section>
+          <label>Message<textarea id="cMsg" rows="5" required></textarea></label>
+          <button class="btn btn-dark">Send</button>
+        </form>
+      </div>
+    </section>
 
-        <!-- WORKSPACE: TIME -->
-        <section data-route="/workspace/time" class="route" aria-labelledby="timeTitle">
-          <h1 id="timeTitle" class="visually-hidden">Time Tracking</h1>
-          <div class="card">
-            <header><h2>Timer</h2></header>
-            <div class="timer">
-              <select id="timerTask"></select>
-              <button class="btn" id="btnTimerStart">Start</button>
-              <button class="btn" id="btnTimerStop" disabled>Stop</button>
-              <span id="timerDisplay">00:00:00</span>
-            </div>
-          </div>
-          <div class="card">
-            <header><h2>Entries</h2></header>
-            <table class="table" id="timeEntries">
-              <thead><tr><th>Task</th><th>Started</th><th>Ended</th><th>Duration</th><th>Billable</th><th>Memo</th></tr></thead>
-              <tbody></tbody>
-            </table>
-            <div class="btn-row">
-              <button class="btn sm" id="btnExportCSV">Export CSV</button>
-            </div>
-          </div>
-        </section>
+  </main>
 
-        <!-- WORKSPACE: AUTOMATIONS -->
-        <section data-route="/workspace/automations" class="route" aria-labelledby="autoTitle">
-          <h1 id="autoTitle" class="visually-hidden">Automations</h1>
-          <div class="grid-2">
-            <div class="card">
-              <header><h2>Rules</h2></header>
-              <ul id="rulesList" class="list"></ul>
-              <div class="btn-row">
-                <button class="btn" id="btnNewRule">New Rule</button>
-              </div>
-            </div>
-            <div class="card">
-              <header><h2>Editor</h2></header>
-              <form id="ruleForm" class="form">
-                <label>Trigger
-                  <select id="ruleTrigger">
-                    <option value="message.received">message.received</option>
-                    <option value="message.mentioned">message.mentioned</option>
-                    <option value="task.created">task.created</option>
-                    <option value="task.updated">task.updated</option>
-                    <option value="event.created">event.created</option>
-                    <option value="invoice.overdue">invoice.overdue</option>
-                    <option value="desk.booked">desk.booked</option>
-                  </select>
-                </label>
-                <label>Conditions (JSON)
-                  <textarea id="ruleConditions" rows="6" spellcheck="false" placeholder='{"type":"email"}'></textarea>
-                </label>
-                <label>Actions (JSON array)
-                  <textarea id="ruleActions" rows="6" spellcheck="false" placeholder='[{"type":"notify","users":["@team"],"message":"New item"}]'></textarea>
-                </label>
-                <div class="form-row">
-                  <label><input type="checkbox" id="ruleEnabled" checked> Enabled</label>
-                </div>
-                <div class="btn-row">
-                  <button class="btn" id="btnSaveRule">Save</button>
-                  <button class="btn" id="btnTestRule">Dry Run</button>
-                </div>
-              </form>
-              <pre id="ruleOutput" class="code" aria-live="polite"></pre>
-            </div>
-          </div>
-        </section>
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a href="#/" class="brand small"><span>Project</span> Unified</a>
+        <p class="muted">One dashboard for everything.</p>
+      </div>
+      <nav>
+        <h4>Product</h4>
+        <a href="#/features">Features</a>
+        <a href="#/integrations">Integrations</a>
+        <a href="#/pricing">Pricing</a>
+      </nav>
+      <nav>
+        <h4>Company</h4>
+        <a href="#/case-studies">Case studies</a>
+        <a href="#/faq">FAQ</a>
+        <a href="#/contact">Contact</a>
+      </nav>
+      <div>
+        <h4>Get started</h4>
+        <button class="btn btn-dark" id="footerSignup">Create account</button>
+      </div>
+    </div>
+    <div class="muted tiny">© <span id="year"></span> Project Unified. All rights reserved.</div>
+  </footer>
 
-        <!-- CALENDAR -->
-        <section data-route="/calendar" class="route" aria-labelledby="calTitle">
-          <h1 id="calTitle" class="visually-hidden">Calendar</h1>
-          <div class="toolbar">
-            <div class="btn-group" role="group" aria-label="Calendar views">
-              <button class="btn sm" data-calview="month">Month</button>
-              <button class="btn sm" data-calview="week">Week</button>
-              <button class="btn sm" data-calview="day">Day</button>
-            </div>
-            <div class="spacer"></div>
-            <button class="btn" id="btnNewEvent">New Event</button>
-          </div>
-          <div id="calendar" class="calendar"></div>
-        </section>
+  <!-- Login Modal -->
+  <dialog id="loginModal" class="modal" aria-labelledby="loginTitle">
+    <form method="dialog" class="modal-card" id="loginForm">
+      <header class="modal-header">
+        <h3 id="loginTitle">Login</h3>
+        <button class="icon-btn" value="close" aria-label="Close">×</button>
+      </header>
 
-        <!-- NOTES -->
-        <section data-route="/notes" class="route" aria-labelledby="notesTitle">
-          <h1 id="notesTitle" class="visually-hidden">Notes</h1>
-          <div class="grid-2">
-            <div class="card">
-              <header><h2>Notebook</h2></header>
-              <ul id="notesList" class="list selectable"></ul>
-              <div class="btn-row">
-                <button class="btn" id="btnNewNote">New Note</button>
-              </div>
-            </div>
-            <div class="card">
-              <header><h2>Editor</h2></header>
-              <input id="noteTitle" class="input" type="text" placeholder="Note title">
-              <div id="noteEditor" class="note-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Note editor"></div>
-              <div class="btn-row">
-                <button class="btn sm" id="btnExtractTasks">Extract Tasks</button>
-                <button class="btn sm" id="btnTagNote">Add Tag</button>
-                <button class="btn sm" id="btnSaveNote">Save</button>
-              </div>
-              <div id="noteMeta" class="muted"></div>
-            </div>
-          </div>
-        </section>
+      <label>Username or Email
+        <input type="text" id="loginId" required autocomplete="username email">
+      </label>
+      <label>Password
+        <input type="password" id="loginPwd" required autocomplete="current-password">
+      </label>
+      <div class="form-row small">
+        <label class="inline"><input type="checkbox" id="rememberMe"> Remember me</label>
+        <a href="#" class="muted">Forgot password?</a>
+      </div>
 
-        <!-- CLIENTS: CRM -->
-        <section data-route="/clients/crm" class="route" aria-labelledby="crmTitle">
-          <h1 id="crmTitle" class="visually-hidden">CRM</h1>
-          <div class="kanban crm">
-            <div class="kan-col" data-stage="lead"><header>Lead</header><div class="kan-items" id="crmLead"></div></div>
-            <div class="kan-col" data-stage="qualified"><header>Qualified</header><div class="kan-items" id="crmQualified"></div></div>
-            <div class="kan-col" data-stage="proposal"><header>Proposal</header><div class="kan-items" id="crmProposal"></div></div>
-            <div class="kan-col" data-stage="won"><header>Won</header><div class="kan-items" id="crmWon"></div></div>
-            <div class="kan-col" data-stage="lost"><header>Lost</header><div class="kan-items" id="crmLost"></div></div>
-          </div>
-          <div class="btn-row">
-            <button class="btn" id="btnNewDeal">New Deal</button>
-          </div>
-        </section>
-
-        <!-- CLIENTS: ONBOARDING -->
-        <section data-route="/clients/onboarding" class="route">
-          <div class="card">
-            <header><h2>Client Onboarding</h2></header>
-            <form id="onboardForm" class="form">
-              <div class="form-row">
-                <label>Client Name <input type="text" id="onbName" required></label>
-                <label>Contact Email <input type="email" id="onbEmail" required></label>
-              </div>
-              <label>Project Goals <textarea id="onbGoals" rows="3"></textarea></label>
-              <label>Brand Essence <textarea id="onbBrand" rows="3" placeholder="Tone, voice, audience…"></textarea></label>
-              <div class="btn-row"><button class="btn" id="btnGenerateBrief">Generate Brief</button></div>
-            </form>
-            <div id="onbOutputs" class="grid-3" hidden>
-              <section class="card"><header><h3>Project Brief</h3></header><pre class="code" id="onbBrief"></pre></section>
-              <section class="card"><header><h3>Initial Task List</h3></header><ul id="onbTasks" class="list"></ul></section>
-              <section class="card"><header><h3>Welcome Message</h3></header><pre class="code" id="onbWelcome"></pre></section>
-            </div>
-          </div>
-        </section>
-
-        <!-- CLIENTS: SEQUENCES -->
-        <section data-route="/clients/sequences" class="route">
-          <div class="grid-2">
-            <div class="card">
-              <header><h2>Sequences</h2></header>
-              <ul id="seqList" class="list"></ul>
-              <div class="btn-row"><button class="btn" id="btnNewSequence">New Sequence</button></div>
-            </div>
-            <div class="card">
-              <header><h2>Editor</h2></header>
-              <form id="seqForm" class="form">
-                <label>Name <input id="seqName" type="text" required></label>
-                <label>Steps (JSON)
-                  <textarea id="seqSteps" rows="8" spellcheck="false" placeholder='[{"afterHours":0,"type":"email","template":"Thanks for your interest!"}]'></textarea>
-                </label>
-                <div class="btn-row">
-                  <button class="btn" id="btnSaveSequence">Save</button>
-                  <button class="btn" id="btnTestSequence">Simulate</button>
-                </div>
-              </form>
-              <pre id="seqOut" class="code" aria-live="polite"></pre>
-            </div>
-          </div>
-        </section>
-
-        <!-- CLIENTS: BRAND DNA -->
-        <section data-route="/clients/brand-dna" class="route">
-          <div class="grid-2">
-            <div class="card">
-              <header><h2>Brand DNA Profile</h2></header>
-              <form id="dnaForm" class="form">
-                <label>Mission <textarea id="dnaMission" rows="3"></textarea></label>
-                <label>Tone (sliders)</label>
-                <div class="form-row sliders">
-                  <label>Formal <input type="range" id="dnaFormal" min="0" max="100" value="50"></label>
-                  <label>Playful <input type="range" id="dnaPlayful" min="0" max="100" value="50"></label>
-                  <label>Enthusiastic <input type="range" id="dnaEnth" min="0" max="100" value="50"></label>
-                </div>
-                <label>Banned Words <input type="text" id="dnaBanned" placeholder="comma,separated"></label>
-                <div class="btn-row"><button class="btn" id="btnSaveDNA">Save</button></div>
-              </form>
-            </div>
-            <div class="card">
-              <header><h2>Preview & Guardrails</h2></header>
-              <textarea id="dnaSample" rows="5" placeholder="Type sample copy…"></textarea>
-              <div class="btn-row"><button class="btn" id="btnApplyDNA">Apply DNA</button></div>
-              <pre id="dnaOut" class="code"></pre>
-            </div>
-          </div>
-        </section>
-
-        <!-- CLIENTS: BILLING -->
-        <section data-route="/clients/billing" class="route">
-          <div class="card">
-            <header><h2>Invoices</h2></header>
-            <table class="table" id="invoiceTable">
-              <thead><tr><th>#</th><th>Client</th><th>Amount</th><th>Status</th><th>Due</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <div class="card">
-            <header><h2>Subscriptions</h2></header>
-            <table class="table" id="subsTable">
-              <thead><tr><th>Client</th><th>Plan</th><th>Status</th><th>Started</th><th>Cancel At</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- DIGITAL TWIN -->
-        <section data-route="/twin" class="route">
-          <div class="card">
-            <header><h2>Office Map & Booking</h2></header>
-            <div id="deskLegend" class="legend">
-              <span class="chip">Available</span>
-              <span class="chip busy">Booked</span>
-              <span class="chip me">Mine</span>
-            </div>
-            <div id="deskGrid" class="desk-grid" role="grid" aria-label="Desk map"></div>
-          </div>
-        </section>
-
-        <!-- REPORTS -->
-        <section data-route="/reports" class="route">
-          <div class="grid-3">
-            <div class="card">
-              <header><h2>Velocity</h2></header>
-              <div class="bar-chart" id="repVelocity"></div>
-            </div>
-            <div class="card">
-              <header><h2>Utilization</h2></header>
-              <div class="bar-chart" id="repUtilization"></div>
-            </div>
-            <div class="card">
-              <header><h2>Inbox Response Time</h2></header>
-              <div class="bar-chart" id="repInbox"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ADMIN -->
-        <section data-route="/admin" class="route">
-          <div class="grid-2">
-            <div class="card">
-              <header><h2>Organization & Theme</h2></header>
-              <form id="themeForm" class="form">
-                <label>Theme Color <input type="color" id="themePrimary" value="#4f46e5"></label>
-                <label>Wallpaper <select id="wallpaperSelect">
-                  <option value="none">None</option>
-                  <option value="gradient">Gradient</option>
-                  <option value="dots">Dots</option>
-                </select></label>
-                <label>Density <select id="densitySelect">
-                  <option value="comfortable">Comfortable</option>
-                  <option value="compact">Compact</option>
-                </select></label>
-                <label>High Contrast <input type="checkbox" id="highContrast"></label>
-                <div class="btn-row"><button class="btn" id="btnSaveTheme">Save</button></div>
-              </form>
-            </div>
-            <div class="card">
-              <header><h2>Notification Sounds</h2></header>
-              <div class="btn-row">
-                <button class="btn sm" data-sound="default">Play Default</button>
-                <button class="btn sm" data-sound="priority">Play Priority</button>
-                <button class="btn sm" data-sound="dm">Play DM</button>
-                <button class="btn sm" data-sound="mention">Play Mention</button>
-                <button class="btn sm" data-sound="taskDue">Play Task Due</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- CLIENT PORTAL (read-only illustration) -->
-        <section data-route="/client-portal" class="route">
-          <div class="card">
-            <header><h2>Client Portal</h2></header>
-            <p>Read-only project snapshots and approvals appear here based on access.</p>
-          </div>
-        </section>
-      </main>
-
-      <!-- Right Rail (global) handled per-route -->
-
-    </div><!-- /app-body -->
-  </div><!-- /app-shell -->
-
-  <!-- Notifications Panel -->
-  <aside id="notifPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="notifTitle" hidden>
-    <header class="sheet-header">
-      <h2 id="notifTitle">Notifications</h2>
-      <button class="icon-btn" id="btnCloseNotif" aria-label="Close">&times;</button>
-    </header>
-    <div id="notifGroups" class="sheet-body"></div>
-  </aside>
-
-  <!-- Command Palette -->
-  <dialog id="cmdk" class="cmdk" aria-label="Command Palette" aria-modal="true">
-    <form id="cmdkForm" method="dialog" class="cmdk-inner">
-      <input id="cmdkInput" type="text" placeholder="Type a command…" aria-label="Command input" autocomplete="off">
-      <ul id="cmdkList" class="cmdk-list" role="listbox" aria-label="Command list"></ul>
-      <div class="cmdk-hint">↑↓ to navigate • Enter to run • Esc to close</div>
+      <div class="btn-row">
+        <button class="btn btn-dark" value="submit">Login</button>
+        <button class="btn btn-ghost" id="swapToSignup" type="button">Create account</button>
+      </div>
     </form>
   </dialog>
 
-  <!-- Settings Panel (simple) -->
-  <aside id="settingsPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="settingsTitle" hidden>
-    <header class="sheet-header">
-      <h2 id="settingsTitle">Settings</h2>
-      <button class="icon-btn" id="btnCloseSettings" aria-label="Close">&times;</button>
-    </header>
-    <div class="sheet-body">
-      <p>Use Admin → Organization & Theme to customize theme, density, contrast, and wallpaper.</p>
-      <p>Role-aware navigation is driven by the Role selector in the top bar.</p>
-      <p>Keyboard: / search • ⌘K command • E compose • N new task • G then I go inbox.</p>
-    </div>
-  </aside>
+  <!-- Signup Modal -->
+  <dialog id="signupModal" class="modal" aria-labelledby="signupTitle">
+    <form method="dialog" class="modal-card" id="signupForm">
+      <header class="modal-header">
+        <h3 id="signupTitle">Create your Project Unified account</h3>
+        <button class="icon-btn" value="close" aria-label="Close">×</button>
+      </header>
+
+      <div class="form-row">
+        <label>Full name<input type="text" id="suName" required autocomplete="name"></label>
+        <label>Username<input type="text" id="suUser" required autocomplete="username"></label>
+      </div>
+      <div class="form-row">
+        <label>Email<input type="email" id="suEmail" required autocomplete="email"></label>
+        <label>Company (optional)<input type="text" id="suCompany" autocomplete="organization"></label>
+      </div>
+      <div class="form-row">
+        <label>Password
+          <input type="password" id="suPwd" required autocomplete="new-password" minlength="8">
+          <progress id="pwdStrength" max="4" value="0" class="progress"></progress>
+        </label>
+        <label>Confirm password
+          <input type="password" id="suPwd2" required autocomplete="new-password" minlength="8">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Role
+          <select id="suRole">
+            <option>Founder</option>
+            <option>Manager</option>
+            <option>Member</option>
+            <option>Developer</option>
+          </select>
+        </label>
+        <label>Timezone
+          <select id="suTz"></select>
+        </label>
+      </div>
+
+      <label class="inline"><input type="checkbox" id="suTos" required> I agree to the Terms &amp; Privacy</label>
+
+      <div class="btn-row">
+        <button class="btn btn-dark" value="submit">Create account</button>
+        <button class="btn btn-ghost" id="swapToLogin" type="button">I have an account</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Toasts -->
-  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+  <div id="toasts" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="app.js" defer></script>
+  <script src="home.js"></script>
 </body>
 </html>
