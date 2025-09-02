@@ -6,6 +6,7 @@
   <title>Project Unified — All-in-one business Prototype</title>
   <meta name="description" content="Perfect Unified: A unified digital ecosystem prototype (HTML + CSS + JS)">
   <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
 </head>
 <body>
   <!-- App Shell -->
@@ -49,10 +50,10 @@
         <div class="presence" id="presence" role="status" aria-label="Presence">
           <span class="presence-dot" id="presenceDot" title="Status"></span>
           <select id="presenceSelect" aria-label="Set status">
-            <option value="available">Available</option>
+            <option value="available">Active</option>
             <option value="busy">Busy</option>
             <option value="away">Away</option>
-            <option value="dnd">Do Not Disturb</option>
+            <option value="dnd">DND</option>
           </select>
         </div>
 
@@ -113,9 +114,11 @@
           <li><a href="#/twin" data-roles="Admin,Manager,Member" class="nav-link"><span>🗺</span> Digital Twin</a></li>
           <li><a href="#/reports" data-roles="Admin,Manager" class="nav-link"><span>📈</span> Reports</a></li>
           <li><a href="#/admin" data-roles="Admin" class="nav-link"><span>🛡</span> Admin</a></li>
+          <li><a href="#/help" data-roles="Admin,Manager,Member,Client" class="nav-link"><span>❓</span> Help & Feedback</a></li>
+          <li><a href="/index.html" data-roles="Admin,Manager,Member,Client" class="nav-link"><span class="glyphicon glyphicon-log-out"></span> Logout</a></li>
 
           <li class="nav-section">External</li>
-          <li><a href="#/client-portal" data-roles="Client" class="nav-link"><span>🔒</span> Client Portal</a></li>
+          <li><a href="#/client-portal" data-roles="Admin,Client" class="nav-link"><span>🔒</span> Client Portal</a></li>
         </ul>
       </nav>
 
