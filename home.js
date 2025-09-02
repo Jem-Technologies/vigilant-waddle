@@ -53,6 +53,44 @@
     return data;
   }
 
+  async function apiPost(url, payload) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    let data;
+    try { data = await res.json(); } catch { data = { error: "No JSON body" }; }
+    if (!res.ok) {
+      // Surface server error text instead of generic "Unhandled error"
+      const msg = data?.error || data?.detail || JSON.stringify(data);
+      throw new Error(msg);
+   }
+    return data;
+  }
+
+  // Example: SIGNUP
+  async function doSignup({ name, username, email, password }) {
+    try {
+      const out = await apiPost("/api/signup", { name, username, email, password });
+      // success → go to dashboard
+      location.href = "/dashboard.html";
+    } catch (err) {
+      alert(`Signup failed: ${err.message}`); // or your toast/snackbar
+    }
+  }
+
+  // Example: LOGIN
+  async function doLogin({ id, password }) {
+    try {
+      const out = await apiPost("/api/login", { id, password });
+      location.href = "/dashboard.html";
+    } catch (err) {
+      alert(`Login failed: ${err.message}`);
+    }
+  }
+
+
   on($('#loginForm'),'submit', async (e)=>{
     e.preventDefault();
     const id  = $('#loginId').value.trim();
