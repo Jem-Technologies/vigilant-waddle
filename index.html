@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Project Unified — One dashboard for everything</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="/home.js" defer></script>
   <link rel="icon" href="data:,">
 </head>
 <body>
@@ -319,22 +320,24 @@
 
   <!-- Login Modal -->
   <dialog id="loginModal" class="modal" aria-labelledby="loginTitle">
-    <form method="dialog" class="modal-card" id="loginForm">
+    <form class="modal-card" id="loginForm" novalidate>
       <header class="modal-header">
         <h3 id="loginTitle">Login</h3>
-        <button class="icon-btn" value="close" aria-label="Close">×</button>
+        <!-- prevent accidental form submit -->
+        <button class="icon-btn" type="button" value="close" aria-label="Close">×</button>
       </header>
 
       <label>Username or Email
         <input type="text" id="loginId" required autocomplete="username email">
       </label>
+
       <label>Password
         <input type="password" id="loginPwd" required autocomplete="current-password">
       </label>
-      <!-- Optional: Organization (slug) -->
-      <label for="suOrg">Organization</label>
-      <input id="suOrg" name="org" placeholder="e.g., rescueroofer">
-      <small class="hint">Leave blank to auto-create from your username</small>
+
+      <label>Organization
+        <input type="text" id="loginOrg" placeholder="e.g., jemtech" required autocomplete="organization">
+      </label>
 
       <div class="form-row small">
         <label class="inline"><input type="checkbox" id="rememberMe"> Remember me</label>
@@ -342,28 +345,44 @@
       </div>
 
       <div class="btn-row">
-        <button class="btn btn-dark" value="submit">Login</button>
+        <!-- ensure it submits -->
+        <button class="btn btn-dark" type="submit" id="loginSubmit">Login</button>
         <button class="btn btn-ghost" id="swapToSignup" type="button">Create account</button>
       </div>
     </form>
   </dialog>
 
+
   <!-- Signup Modal -->
   <dialog id="signupModal" class="modal" aria-labelledby="signupTitle">
-    <form method="dialog" class="modal-card" id="signupForm">
+    <form class="modal-card" id="signupForm" novalidate>
       <header class="modal-header">
         <h3 id="signupTitle">Create your Project Unified account</h3>
-        <button class="icon-btn" value="close" aria-label="Close">×</button>
+        <!-- prevent accidental form submit -->
+        <button class="icon-btn" type="button" value="close" aria-label="Close">×</button>
       </header>
 
       <div class="form-row">
-        <label>Full name<input type="text" id="suName" required autocomplete="name"></label>
-        <label>Username<input type="text" id="suUser" required autocomplete="username"></label>
+        <label>Full name
+          <input type="text" id="suName" required autocomplete="name">
+        </label>
+        <label>Username
+          <input type="text" id="suUser" required autocomplete="username">
+        </label>
       </div>
+
       <div class="form-row">
-        <label>Email<input type="email" id="suEmail" required autocomplete="email"></label>
-        <label>Company (optional)<input type="text" id="suCompany" autocomplete="organization"></label>
+        <label>Email
+          <input type="email" id="suEmail" required autocomplete="email">
+        </label>
+        <label>Organization (optional)
+          <input type="text" id="suOrg" placeholder="Leave blank to auto-create from your username">
+        </label>
+        <label>Company (optional)
+          <input type="text" id="suCompany" autocomplete="organization">
+        </label>
       </div>
+
       <div class="form-row">
         <label>Password
           <input type="password" id="suPwd" required autocomplete="new-password" minlength="8">
@@ -373,6 +392,7 @@
           <input type="password" id="suPwd2" required autocomplete="new-password" minlength="8">
         </label>
       </div>
+
       <div class="form-row">
         <label>Role
           <select id="suRole">
@@ -387,18 +407,21 @@
         </label>
       </div>
 
-      <label class="inline"><input type="checkbox" id="suTos" required> I agree to the Terms &amp; Privacy</label>
+      <label class="inline">
+        <input type="checkbox" id="suTos" required> I agree to the Terms &amp; Privacy
+      </label>
 
       <div class="btn-row">
-        <button class="btn btn-dark" value="submit">Create account</button>
+        <!-- ensure it submits -->
+        <button class="btn btn-dark" type="submit" id="signupSubmit">Create account</button>
         <button class="btn btn-ghost" id="swapToLogin" type="button">I have an account</button>
       </div>
     </form>
   </dialog>
 
+
   <!-- Toasts -->
   <div id="toasts" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="home.js"></script>
 </body>
 </html>
