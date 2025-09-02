@@ -1,85 +1,120 @@
-// --- helpers: JSON, crypto, cookies ---
-const tenc = new TextEncoder();
-async function hashPassword(password, saltB=null, iterations=150_000){
-  const salt = saltB || crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey('raw', tenc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', hash:'SHA-256', salt, iterations}, key, 256);
-  const hash = btoa(String.fromCharCode(...new Uint8Array(bits)));
-  const saltB64 = btoa(String.fromCharCode(...salt));
-  return { hash, salt: saltB64, iterations };
+// functions/api/login.js
+export async function onRequestPost({ request, env }) {
+  try {
+    if (!env.DB) {
+      return j({ error: "Database not bound (env.DB missing). Add D1 binding 'DB' in Pages → Settings → Functions." }, 500);
+    }
+
+    // Parse JSON body (must be application/json)
+    let body;
+    try { body = await request.json(); }
+    catch { return j({ error: "Invalid JSON body" }, 400); }
+
+    const id = String(body.id || "").trim().toLowerCase();  // email OR username
+    const password = String(body.password || "");
+
+    if (!id || !password) return j({ error: "id (email or username) and password are required" }, 400);
+
+    // Look up user by email or username (case-insensitive)
+    const user = await env.DB
+      .prepare(`
+        SELECT id, name, username, email, role, pwd_hash, pwd_salt
+        FROM users
+        WHERE lower(email)=?1 OR lower(username)=?1
+        LIMIT 1
+      `)
+      .bind(id)
+      .first();
+
+    // Uniform timing: don't reveal which part failed
+    if (!user) return j({ error: "Invalid credentials" }, 401);
+
+    // Derive hash with same parameters used during signup
+    const ok = await verifyPassword(password, user.pwd_salt, user.pwd_hash);
+    if (!ok) return j({ error: "Invalid credentials" }, 401);
+
+    // Create fresh session (30d)
+    const sessionId = crypto.randomUUID();
+    const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+
+    try {
+      await env.DB
+        .prepare(`INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (?1, ?2, ?3, unixepoch())`)
+        .bind(sessionId, user.id, expiresAt)
+        .run();
+    } catch (e) {
+      return j({ error: "Session create failed", detail: String(e?.message || e) }, 500);
+    }
+
+    const cookie = makeSessionCookie(sessionId, expiresAt);
+
+    return new Response(JSON.stringify({
+      ok: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "set-cookie": cookie
+      }
+    });
+
+  } catch (err) {
+    return j({ error: "Unhandled error", detail: String(err?.message || err) }, 500);
+  }
 }
-async function verifyPassword(password, saltB64, iterations, expectedB64){
-  const salt = Uint8Array.from(atob(saltB64), c=>c.charCodeAt(0));
-  const { hash } = await hashPassword(password, salt, iterations);
+
+// ------ helpers ------
+function j(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" }
+  });
+}
+
+async function verifyPassword(password, saltBlob, hashBlob) {
+  // saltBlob and hashBlob come out of D1 as ArrayBuffer/Uint8Array depending on driver
+  const salt = toUint8Array(saltBlob);
+  const expected = toUint8Array(hashBlob);
+
+  const derivedBits = await pbkdf2(password, salt, 150_000); // must match signup
+  const actual = new Uint8Array(derivedBits); // 32 bytes
+
   // constant-time compare
-  const a = atob(hash); const b = atob(expectedB64);
-  if (a.length !== b.length) return false;
-  let diff = 0; for (let i=0;i<a.length;i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  if (actual.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < actual.length; i++) diff |= actual[i] ^ expected[i];
   return diff === 0;
 }
-function json(data, init={}){
-  return new Response(JSON.stringify(data), { headers: {'content-type':'application/json', ...(init.headers||{})}, status: init.status||200 });
-}
-function bad(msg, status=400){ return json({ok:false, error:msg}, {status}); }
-function now(){ return Math.floor(Date.now()/1000); }
-function days(n){ return n*24*60*60; }
-function randToken(bytes=32){
-  const b = new Uint8Array(bytes); crypto.getRandomValues(b);
-  return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-}
-const COOKIE_NAME = 'PU_SESSION';
-function makeCookie(token, ttlDays=30){
-  if (!token) { // expire
-    return `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax; Secure`;
-  }
-  const maxAge = days(ttlDays);
-  return `${COOKIE_NAME}=${token}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax; Secure`;
-}
-function readCookie(request, name){
-  const raw = request.headers.get('cookie') || '';
-  const parts = raw.split(';').map(s=>s.trim());
-  for (const p of parts){
-    const [k, ...rest] = p.split('='); if (k === name) return rest.join('=');
-  }
-  return null;
-}
-async function getSessionUser(env, request){
-  const token = readCookie(request, COOKIE_NAME);
-  if (!token) return null;
-  const row = await env.DB.prepare(
-    'SELECT u.id, u.email, u.username, u.name, u.role, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
-  ).bind(token).first();
-  if (!row) return null;
-  if (row.expires_at < now()){
-    // cleanup
-    await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
-    return null;
-  }
-  return row;
+
+async function pbkdf2(password, saltBytes, iterations) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
+  return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
 }
 
-export const onRequestPost = async ({ env, request }) => {
-  let body = {}
-  try { body = await request.json() } catch { return bad('Invalid JSON') }
+function toUint8Array(blobOrArrayBuffer) {
+  if (blobOrArrayBuffer instanceof Uint8Array) return blobOrArrayBuffer;
+  if (blobOrArrayBuffer?.buffer instanceof ArrayBuffer) return new Uint8Array(blobOrArrayBuffer.buffer);
+  if (blobOrArrayBuffer instanceof ArrayBuffer) return new Uint8Array(blobOrArrayBuffer);
+  // Some environments return plain objects; fall back to conversion
+  return new Uint8Array(blobOrArrayBuffer);
+}
 
-  const id = String(body.id||'').trim().toLowerCase(); // email or username
-  const password = String(body.password||'');
-
-  if (!id || !password) return bad('Missing credentials');
-
-  const user = await env.DB.prepare('SELECT * FROM users WHERE email = ? OR username = ?').bind(id, id).first();
-  if (!user) return bad('Invalid credentials', 401);
-
-  const ok = await verifyPassword(password, user.password_salt, user.password_iter, user.password_hash);
-  if (!ok) return bad('Invalid credentials', 401);
-
-  // rotate session
-  const token = randToken(); const created_at = now(); const ttlDays = 30;
-  await env.DB.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)')
-    .bind(token, user.id, created_at, created_at + days(ttlDays)).run();
-
-  return new Response(JSON.stringify({ ok:true, user:{ id:user.id, email:user.email, username:user.username, name:user.name, role:user.role } }), {
-    status: 200,
-    headers: { 'content-type':'application/json', 'set-cookie': makeCookie(token, ttlDays) }
-  });
-};
+function makeSessionCookie(sessionId, expUnix) {
+  const expires = new Date(expUnix * 1000).toUTCString();
+  return [
+    `sess=${encodeURIComponent(sessionId)}`,
+    `Path=/`,
+    `HttpOnly`,
+    `Secure`,
+    `SameSite=Lax`,
+    `Expires=${expires}`
+  ].join("; ");
+}
