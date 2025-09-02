@@ -1,4 +1,3 @@
-<script>
 (async function boot() {
   try {
     // 1) Auth check
@@ -92,4 +91,3 @@
     });
   }
 })();
-</script>
