@@ -1,3 +1,4 @@
+// dashboard.auth.js — pure JS file (no <script> wrapper)
 (async function boot() {
   try {
     // 1) Auth check
@@ -53,9 +54,7 @@
     const logoutBtn = document.querySelector("[data-logout]");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async () => {
-        try {
-          await fetch("/api/logout", { method: "POST", credentials: "include" });
-        } catch {}
+        try { await fetch("/api/logout", { method: "POST", credentials: "include" }); } catch {}
         location.href = "/index.html#login";
       });
     }
@@ -82,7 +81,6 @@
     return letters.toUpperCase();
   }
   function toggleRoleBlocks(role) {
-    // Elements visible only to Admin or Manager
     document.querySelectorAll("[data-admin-only]").forEach(el => {
       el.style.display = (role === "Admin") ? "" : "none";
     });
