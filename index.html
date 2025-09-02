@@ -319,7 +319,7 @@
 
   <!-- Login Modal -->
   <dialog id="loginModal" class="modal" aria-labelledby="loginTitle">
-    <form method="dialog" class="modal-card" id="loginForm">
+    <form class="modal-card" id="loginForm" novalidate>
       <header class="modal-header">
         <h3 id="loginTitle">Login</h3>
         <button class="icon-btn" value="close" aria-label="Close">×</button>
@@ -339,7 +339,7 @@
       </div>
 
       <div class="btn-row">
-        <button class="btn btn-dark" value="submit">Login</button>
+        <button class="btn btn-dark" type="submit">Login</button>
         <button class="btn btn-ghost" id="swapToSignup" type="button">Create account</button>
       </div>
     </form>
@@ -347,7 +347,7 @@
 
   <!-- Signup Modal -->
   <dialog id="signupModal" class="modal" aria-labelledby="signupTitle">
-    <form method="dialog" class="modal-card" id="signupForm">
+    <form class="modal-card" id="signupForm" novalidate>
       <header class="modal-header">
         <h3 id="signupTitle">Create your Project Unified account</h3>
         <button class="icon-btn" value="close" aria-label="Close">×</button>
@@ -390,7 +390,7 @@
       <label class="inline"><input type="checkbox" id="suTos" required> I agree to the Terms &amp; Privacy</label>
 
       <div class="btn-row">
-        <button class="btn btn-dark" value="submit">Create account</button>
+        <button class="btn btn-dark" type="submit">Create account</button>
         <button class="btn btn-ghost" id="swapToLogin" type="button">I have an account</button>
       </div>
     </form>
