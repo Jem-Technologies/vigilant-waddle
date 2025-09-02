@@ -319,105 +319,109 @@
   </footer>
 
   <!-- Login Modal -->
-  <dialog id="loginModal" class="modal" aria-labelledby="loginTitle">
-    <form class="modal-card" id="loginForm" novalidate>
-      <header class="modal-header">
-        <h3 id="loginTitle">Login</h3>
-        <!-- prevent accidental form submit -->
-        <button class="icon-btn" type="button" value="close" aria-label="Close">×</button>
-      </header>
+<dialog id="loginModal" class="modal" aria-labelledby="loginTitle">
+  <form class="modal-card" id="loginForm" novalidate>
+    <header class="modal-header">
+      <h3 id="loginTitle">Login</h3>
+      <!-- prevent accidental submit -->
+      <button class="icon-btn" type="button" value="close" aria-label="Close">×</button>
+    </header>
 
-      <label>Username or Email
-        <input type="text" id="loginId" required autocomplete="username email">
-      </label>
+    <label>Username or Email
+      <input type="text" id="loginId" required autocomplete="username email">
+    </label>
 
-      <label>Password
-        <input type="password" id="loginPwd" required autocomplete="current-password">
-      </label>
+    <label>Password
+      <input type="password" id="loginPwd" required autocomplete="current-password">
+    </label>
 
-      <label>Organization
-        <input type="text" id="loginOrg" placeholder="e.g., jemtech" required autocomplete="organization">
-      </label>
+    <!-- REQUIRED for org-scoped login -->
+    <label>Organization
+      <input type="text" id="loginOrg" placeholder="e.g., jemtech" required autocomplete="organization">
+    </label>
 
-      <div class="form-row small">
-        <label class="inline"><input type="checkbox" id="rememberMe"> Remember me</label>
-        <a href="#" class="muted">Forgot password?</a>
-      </div>
+    <div class="form-row small">
+      <label class="inline"><input type="checkbox" id="rememberMe"> Remember me</label>
+      <a href="#/contact" class="muted">Forgot password?</a>
+    </div>
 
-      <div class="btn-row">
-        <!-- ensure it submits -->
-        <button class="btn btn-dark" type="submit" id="loginSubmit">Login</button>
-        <button class="btn btn-ghost" id="swapToSignup" type="button">Create account</button>
-      </div>
-    </form>
-  </dialog>
+    <div class="btn-row">
+      <button class="btn btn-dark" type="submit" id="loginSubmit">Login</button>
+      <button class="btn btn-ghost" id="swapToSignup" type="button">Create account</button>
+    </div>
+  </form>
+</dialog>
+
 
 
   <!-- Signup Modal -->
-  <dialog id="signupModal" class="modal" aria-labelledby="signupTitle">
-    <form class="modal-card" id="signupForm" novalidate>
-      <header class="modal-header">
-        <h3 id="signupTitle">Create your Project Unified account</h3>
-        <!-- prevent accidental form submit -->
-        <button class="icon-btn" type="button" value="close" aria-label="Close">×</button>
-      </header>
+<dialog id="signupModal" class="modal" aria-labelledby="signupTitle">
+  <form class="modal-card" id="signupForm" novalidate>
+    <header class="modal-header">
+      <h3 id="signupTitle">Create your Project Unified account</h3>
+      <!-- prevent accidental submit -->
+      <button class="icon-btn" type="button" value="close" aria-label="Close">×</button>
+    </header>
 
-      <div class="form-row">
-        <label>Full name
-          <input type="text" id="suName" required autocomplete="name">
-        </label>
-        <label>Username
-          <input type="text" id="suUser" required autocomplete="username">
-        </label>
-      </div>
+    <div class="form-row">
+      <label>Full name
+        <input type="text" id="suName" required autocomplete="name">
+      </label>
+      <label>Username
+        <input type="text" id="suUser" required autocomplete="username">
+      </label>
+    </div>
 
-      <div class="form-row">
-        <label>Email
-          <input type="email" id="suEmail" required autocomplete="email">
-        </label>
-        <label>Organization (optional)
-          <input type="text" id="suOrg" placeholder="Leave blank to auto-create from your username">
-        </label>
-        <label>Company (optional)
-          <input type="text" id="suCompany" autocomplete="organization">
-        </label>
-      </div>
-
-      <div class="form-row">
-        <label>Password
-          <input type="password" id="suPwd" required autocomplete="new-password" minlength="8">
-          <progress id="pwdStrength" max="4" value="0" class="progress"></progress>
-        </label>
-        <label>Confirm password
-          <input type="password" id="suPwd2" required autocomplete="new-password" minlength="8">
-        </label>
-      </div>
-
-      <div class="form-row">
-        <label>Role
-          <select id="suRole">
-            <option>Founder</option>
-            <option>Manager</option>
-            <option>Member</option>
-            <option>Developer</option>
-          </select>
-        </label>
-        <label>Timezone
-          <select id="suTz"></select>
-        </label>
-      </div>
-
-      <label class="inline">
-        <input type="checkbox" id="suTos" required> I agree to the Terms &amp; Privacy
+    <div class="form-row">
+      <label>Email
+        <input type="email" id="suEmail" required autocomplete="email">
       </label>
 
-      <div class="btn-row">
-        <!-- ensure it submits -->
-        <button class="btn btn-dark" type="submit" id="signupSubmit">Create account</button>
-        <button class="btn btn-ghost" id="swapToLogin" type="button">I have an account</button>
-      </div>
-    </form>
-  </dialog>
+      <!-- OPTIONAL: if blank, we’ll derive from username -->
+      <label>Organization (optional)
+        <input type="text" id="suOrg" placeholder="Leave blank to auto-create from your username">
+      </label>
+
+      <label>Company (optional)
+        <input type="text" id="suCompany" autocomplete="organization">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Password
+        <input type="password" id="suPwd" required autocomplete="new-password" minlength="8">
+        <progress id="pwdStrength" max="4" value="0" class="progress"></progress>
+      </label>
+      <label>Confirm password
+        <input type="password" id="suPwd2" required autocomplete="new-password" minlength="8">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Role
+        <select id="suRole">
+          <option>Founder</option>
+          <option>Manager</option>
+          <option>Member</option>
+          <option>Developer</option>
+        </select>
+      </label>
+      <label>Timezone
+        <select id="suTz"></select>
+      </label>
+    </div>
+
+    <label class="inline">
+      <input type="checkbox" id="suTos" required> I agree to the Terms &amp; Privacy
+    </label>
+
+    <div class="btn-row">
+      <button class="btn btn-dark" type="submit" id="signupSubmit">Create account</button>
+      <button class="btn btn-ghost" id="swapToLogin" type="button">I have an account</button>
+    </div>
+  </form>
+</dialog>
+
 
 
   <!-- Toasts -->
