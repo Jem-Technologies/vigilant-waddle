@@ -58,6 +58,46 @@ async function getSessionUser(env, request){
   return row;
 }
 
+export async function onRequestGet({ request, env }) {
+  try {
+    if (!env.DB) return j({ error: "Database not bound (env.DB missing)" }, 500);
+
+    const cookie = request.headers.get("cookie") || "";
+    const sess = parseCookie(cookie).sess;
+    if (!sess) return j({ auth: false });
+
+    const now = Math.floor(Date.now() / 1000);
+    const row = await env.DB
+      .prepare(`
+        SELECT users.id, users.name, users.username, users.email, users.role
+        FROM sessions
+        JOIN users ON users.id = sessions.user_id
+        WHERE sessions.id=?1 AND sessions.expires_at > ?2
+        LIMIT 1
+      `)
+      .bind(sess, now)
+      .first();
+
+    if (!row) return j({ auth: false });
+    return j({ auth: true, user: row });
+  } catch (e) {
+    return j({ error: "Unhandled error", detail: String(e?.message || e) }, 500);
+  }
+}
+function j(obj, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" }});
+}
+function parseCookie(c) {
+  const out = {};
+  c.split(/;\s*/).forEach(kv => {
+    const [k, ...rest] = kv.split("=");
+    if (!k) return;
+    out[k.trim()] = decodeURIComponent((rest.join("=") || "").trim());
+  });
+  return out;
+}
+
+
 export const onRequestGet = async ({ env, request }) => {
   const user = await getSessionUser(env, request);
   if (!user) return bad('Not authenticated', 401);
