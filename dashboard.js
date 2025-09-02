@@ -871,8 +871,8 @@ function getAllTimezones() {
     if (!state.users || !Array.isArray(state.users) || !state.users.length) {
       state.users = [{
         id: uuid(),
-        name: 'Account Owner',
-        email: 'owner@example.com',
+        name: ' data-user-name',
+        email: ' data-user-email',
         role: 'Admin',
         privileges: ['*'],
         password: 'change-me-now',
