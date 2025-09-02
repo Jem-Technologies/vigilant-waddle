@@ -96,10 +96,3 @@ function parseCookie(c) {
   });
   return out;
 }
-
-
-export const onRequestGet = async ({ env, request }) => {
-  const user = await getSessionUser(env, request);
-  if (!user) return bad('Not authenticated', 401);
-  return json({ ok:true, user: { id:user.id, email:user.email, username:user.username, name:user.name, role:user.role } });
-};
