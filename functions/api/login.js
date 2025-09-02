@@ -1,4 +1,5 @@
-import { getOrgSlugFromUrl } from "../_lib/tenant";
+// functions/api/login.js
+import { getOrgSlugFromUrl } from "../_lib/tenant.js";
 const PBKDF2_ITERS = 100_000;
 
 export async function onRequestPost({ request, env }) {
@@ -54,6 +55,7 @@ export async function onRequestPost({ request, env }) {
     return j({ where:"top", error:"Unhandled", detail:String(err?.message||err) }, 500);
   }
 }
+
 function j(o,s=200){ return new Response(JSON.stringify(o),{status:s,headers:{"content-type":"application/json; charset=utf-8"}}); }
 async function pbkdf2(p,s,i){ const enc=new TextEncoder(); const k=await crypto.subtle.importKey("raw",enc.encode(p),{name:"PBKDF2"},false,["deriveBits"]); return crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:s,iterations:i},k,256); }
 function b64dec(str){ const bin=atob(str); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }

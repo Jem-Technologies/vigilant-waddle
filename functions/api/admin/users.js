@@ -1,5 +1,8 @@
-// GET  /api/admin/users        -> list users in my org
-// POST /api/admin/users        -> create user in my org (returns temp password)
+// functions/api/admin/users.js
+// GET  /api/admin/users  -> list users in my org
+// POST /api/admin/users  -> create user in my org (returns temp password)
+
+const PBKDF2_ITERS = 100_000;
 
 export async function onRequestGet({ request, env }) {
   const me = await auth(env, request);
@@ -32,10 +35,9 @@ export async function onRequestPost({ request, env }) {
   const role = (body.role||"Member").trim();
   if (!name || !username || !email) return j({ error:"name, username, email required" }, 400);
 
-  // temp password (you can email this later)
   const temp = genTemp(12);
 
-  // ensure user exists (or create)
+  // ensure user exists
   let user = await env.DB.prepare(`SELECT id FROM users WHERE lower(email)=?1 OR lower(username)=?2 LIMIT 1`)
     .bind(email, username).first();
 
@@ -58,9 +60,7 @@ export async function onRequestPost({ request, env }) {
   return j({ ok:true, user_id: user.id, temp_password: temp });
 }
 
-// ------- helpers -------
-const PBKDF2_ITERS = 100_000;
-
+// ---- helpers ----
 async function auth(env, request) {
   if (!env.DB) return { ok:false, status:500, body:{ error:"env.DB missing" } };
   const cookie = request.headers.get("cookie")||"";
@@ -94,5 +94,5 @@ async function hashPassword(password){
   const saltB64 = b64(salt);
   return { hashB64, saltB64 };
 }
-function b64(u8){ let s=""; for(let i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
+function b64(u8){ let s=""; for (let i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
 function genTemp(n){ const a="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"; let out=""; for(let i=0;i<n;i++) out+=a[Math.floor(Math.random()*a.length)]; return out; }

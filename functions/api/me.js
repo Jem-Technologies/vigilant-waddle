@@ -1,3 +1,4 @@
+// functions/api/me.js
 export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) return j({ error:"env.DB missing" }, 500);

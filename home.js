@@ -1,4 +1,4 @@
-// home.js — org-aware auth wired to your exact form IDs
+// home.js — org-aware auth wired to your exact form IDs (final hardening)
 
 (function () {
   // ---------- helpers ----------
@@ -21,24 +21,50 @@
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
+      credentials: "include",              // ensure Set-Cookie is honored everywhere
       body: JSON.stringify(payload)
     });
     let data;
     try { data = await res.json(); } catch { data = { error: "No JSON body" }; }
-    if (!res.ok) throw new Error(data?.error || data?.detail || JSON.stringify(data));
+    if (!res.ok) {
+      const msg =
+        data?.error ||
+        data?.detail ||
+        (data?.where ? `${data.where}: ${JSON.stringify(data)}` : JSON.stringify(data));
+      throw new Error(msg);
+    }
     return data;
+  }
+  function setBusy(btn, busy) {
+    if (!btn) return;
+    btn.disabled = !!busy;
+    if (busy) {
+      btn.dataset._label = btn.textContent;
+      btn.textContent = "Please wait…";
+    } else {
+      if (btn.dataset._label) btn.textContent = btn.dataset._label;
+      delete btn.dataset._label;
+    }
   }
 
   // ---------- LOGIN ----------
   const loginForm = document.querySelector("#loginForm");
   if (loginForm) {
+    // hide org input if already in /o/{slug}/
+    const orgFromPath = getOrgFromPath();
+    const orgInput = document.querySelector("#loginOrg");
+    if (orgFromPath && orgInput) {
+      const parentLabel = orgInput.closest("label");
+      if (parentLabel) parentLabel.style.display = "none";
+      orgInput.removeAttribute("required");
+    }
+
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault(); // prevent <form method="dialog"> from auto-closing
       const id = (document.querySelector("#loginId")?.value || "").trim();
       const password = (document.querySelector("#loginPwd")?.value || "").trim();
 
       // org: prefer URL (/o/{slug}/), else #loginOrg field
-      const orgFromPath = getOrgFromPath();
       let org = orgFromPath;
       if (!org) {
         const raw = (document.querySelector("#loginOrg")?.value || "").trim();
@@ -46,12 +72,16 @@
         org = slugifyOrg(raw);
       }
 
+      const submitBtn = loginForm.querySelector('.btn.btn-dark');
       try {
+        setBusy(submitBtn, true);
         await apiPost("/api/login", { id, password, org });
         // Use a flat dashboard URL (session is org-scoped on the server)
         location.href = "/dashboard.html";
       } catch (err) {
         alert(`Login failed: ${err.message}`);
+      } finally {
+        setBusy(submitBtn, false);
       }
     });
   }
@@ -93,7 +123,9 @@
       const orgField    = slugifyOrg(document.querySelector("#suOrg")?.value || "");
       const org         = orgFromPath || orgField || slugifyOrg(username);
 
+      const submitBtn = signupForm.querySelector('.btn.btn-dark');
       try {
+        setBusy(submitBtn, true);
         await apiPost("/api/signup", {
           name,
           username,
@@ -102,10 +134,12 @@
           org,
           orgName: company || undefined
         });
-        // On success go to dashboard (server session is org-scoped)
+        // session is org-scoped → a flat dashboard.html works
         location.href = "/dashboard.html";
       } catch (err) {
         alert(`Signup failed: ${err.message}`);
+      } finally {
+        setBusy(submitBtn, false);
       }
     });
   }
