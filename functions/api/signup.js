@@ -1,122 +1,100 @@
-// functions/api/signup.js
-const PBKDF2_ITERS = 100_000; // Cloudflare cap
+import { getOrgSlugFromUrl } from "../_lib/tenant";
+
+const PBKDF2_ITERS = 100_000;
 
 export async function onRequestPost({ request, env }) {
   try {
-    if (!env.DB) return j({ where: "preflight", error: "Database not bound (env.DB missing). Bind D1 as 'DB' in Pages → Settings → Functions." }, 500);
+    if (!env.DB) return j({ where:"preflight", error:"env.DB missing" }, 500);
 
-    // Parse JSON
-    let body;
-    try { body = await request.json(); }
-    catch { return j({ where: "parse", error: "Invalid JSON body" }, 400); }
+    const body = await request.json().catch(()=>null);
+    if (!body) return j({ where:"parse", error:"Invalid JSON" }, 400);
 
-    const name = (body.name || "").trim();
-    const username = (body.username || "").trim().toLowerCase();
-    const email = (body.email || "").trim().toLowerCase();
-    const password = String(body.password || "");
+    const name = (body.name||"").trim();
+    const username = (body.username||"").trim().toLowerCase();
+    const email = (body.email||"").trim().toLowerCase();
+    const password = String(body.password||"");
 
-    if (!name || !username || !email || !password) return j({ where: "validate", error: "name, username, email, and password are required" }, 400);
-    if (!/^[a-z0-9._-]{3,32}$/.test(username)) return j({ where: "validate", error: "username must be 3-32 chars: letters, digits, . _ -" }, 400);
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return j({ where: "validate", error: "invalid email" }, 400);
-    if (password.length < 8) return j({ where: "validate", error: "password must be at least 8 characters" }, 400);
+    if (!name || !username || !email || !password) return j({ where:"validate", error:"name, username, email, password required" }, 400);
 
-    // Ensure tables (idempotent)
-    await ensureSchemaCompat(env.DB);
+    // ensure core tables
+    await ensureCore(env.DB);
 
-    // First user?
-    const countRow = await env.DB.prepare("SELECT COUNT(*) AS c FROM users").first();
-    const isFirstUser = Number(countRow?.c || 0) === 0;
-    const role = isFirstUser ? "Admin" : "Member";
+    // find or create org
+    const orgSlugFromUrl = getOrgSlugFromUrl(request.url);
+    const orgSlug = (body.org || orgSlugFromUrl || username).toLowerCase().replace(/[^a-z0-9-]/g,"-");
+    let org = await env.DB.prepare(`SELECT id, slug, name FROM organizations WHERE slug=?1`).bind(orgSlug).first();
+    if (!org) {
+      const orgId = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT INTO organizations (id, slug, name, created_at) VALUES (?1, ?2, ?3, unixepoch())`
+      ).bind(orgId, orgSlug, body.orgName || name+"'s Organization").run();
+      org = { id: orgId, slug: orgSlug, name: body.orgName || `${name}'s Organization` };
+    }
 
-    // Hash password → base64 TEXT (avoid BLOB binding quirks)
+    // create user with hashed password
     const userId = crypto.randomUUID();
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const derived = await pbkdf2(password, salt, PBKDF2_ITERS);
-    const hash = new Uint8Array(derived); // 32 bytes
-    const saltB64 = b64encode(salt);
-    const hashB64 = b64encode(hash);
+    const hash = new Uint8Array(await pbkdf2(password, salt, PBKDF2_ITERS));
+    const saltB64 = b64(salt), hashB64 = b64(hash);
 
-    // Insert user
     try {
       await env.DB.prepare(
         `INSERT INTO users (id, name, username, email, role, pwd_hash, pwd_salt, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, unixepoch())`
-      ).bind(userId, name, username, email, role, hashB64, saltB64).run();
+      ).bind(userId, name, username, email, "Member", hashB64, saltB64).run();
     } catch (e) {
-      const msg = String(e?.message || e);
-      if (msg.includes("UNIQUE") && (msg.includes("users.username") || msg.includes("users.email"))) {
-        return j({ where: "insert-user", error: "username or email already exists" }, 409);
-      }
-      return j({ where: "insert-user", error: "DB insert failed", detail: msg }, 500);
+      const msg = String(e?.message||e);
+      if (msg.includes("UNIQUE")) return j({ where:"insert-user", error:"username or email already exists" }, 409);
+      return j({ where:"insert-user", error:"DB insert failed", detail: msg }, 500);
     }
 
-    // Session (30d)
+    // First member in org becomes Admin
+    const countOrg = await env.DB.prepare(
+      `SELECT COUNT(*) as c FROM user_orgs WHERE org_id=?1`
+    ).bind(org.id).first();
+    const isFirstInOrg = Number(countOrg?.c||0) === 0;
+    const orgRole = isFirstInOrg ? "Admin" : "Member";
+
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO user_orgs (user_id, org_id, role, created_at)
+       VALUES (?1, ?2, ?3, unixepoch())`
+    ).bind(userId, org.id, orgRole).run();
+
+    // create org-scoped session
     const sessionId = crypto.randomUUID();
-    const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
-    try {
-      await env.DB.prepare(
-        `INSERT INTO sessions (id, user_id, expires_at, created_at)
-         VALUES (?1, ?2, ?3, unixepoch())`
-      ).bind(sessionId, userId, expiresAt).run();
-    } catch (e) {
-      await env.DB.prepare("DELETE FROM users WHERE id=?1").bind(userId).run(); // best-effort rollback
-      return j({ where: "insert-session", error: "Session create failed", detail: String(e?.message || e) }, 500);
-    }
+    const exp = Math.floor(Date.now()/1000) + 60*60*24*30;
+    await env.DB.prepare(
+      `INSERT INTO sessions (id, user_id, org_id, expires_at, created_at)
+       VALUES (?1, ?2, ?3, ?4, unixepoch())`
+    ).bind(sessionId, userId, org.id, exp).run();
 
-    const cookie = makeSessionCookie(sessionId, expiresAt);
-    return new Response(JSON.stringify({ ok: true, user: { id: userId, name, username, email, role } }), {
+    return new Response(JSON.stringify({
+      ok:true,
+      user:{ id:userId, name, username, email, role:orgRole },
+      org:{ id:org.id, slug:org.slug, name:org.name }
+    }), {
       status: 201,
-      headers: { "content-type": "application/json; charset=utf-8", "set-cookie": cookie }
+      headers: {
+        "content-type":"application/json; charset=utf-8",
+        "set-cookie": makeCookie(sessionId, exp)
+      }
     });
 
   } catch (err) {
-    return j({ where: "top", error: "Unhandled error", detail: String(err?.message || err) }, 500);
+    return j({ where:"top", error:"Unhandled", detail:String(err?.message||err) }, 500);
   }
 }
 
-// Helpers
-function j(obj, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
+function j(o,s=200){ return new Response(JSON.stringify(o),{status:s,headers:{"content-type":"application/json; charset=utf-8"}}); }
+async function ensureCore(DB){
+  await DB.prepare(`CREATE TABLE IF NOT EXISTS organizations (id TEXT PRIMARY KEY, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (unixepoch()))`).run();
+  await DB.prepare(`CREATE TABLE IF NOT EXISTS user_orgs (user_id TEXT NOT NULL, org_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Member', created_at INTEGER NOT NULL DEFAULT (unixepoch()), PRIMARY KEY (user_id,org_id))`).run();
+  await DB.prepare(`ALTER TABLE sessions ADD COLUMN org_id TEXT`).run().catch(()=>{});
 }
-async function pbkdf2(password, saltBytes, iterations) {
-  try {
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
-    return await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
-  } catch (e) {
-    throw new Error(`Pbkdf2 failed: ${String(e?.message || e)}`);
-  }
+async function pbkdf2(pwd, saltBytes, iters){
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(pwd), {name:"PBKDF2"}, false, ["deriveBits"]);
+  return crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt:saltBytes, iterations:100_000}, key, 256);
 }
-function b64encode(uint8) {
-  let s = "";
-  for (let i = 0; i < uint8.length; i++) s += String.fromCharCode(uint8[i]);
-  return btoa(s);
-}
-function makeSessionCookie(sessionId, expUnix) {
-  const expires = new Date(expUnix * 1000).toUTCString();
-  return [`sess=${encodeURIComponent(sessionId)}`, `Path=/`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Expires=${expires}`].join("; ");
-}
-async function ensureSchemaCompat(DB) {
-  await DB.prepare(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      role TEXT NOT NULL DEFAULT 'Member',
-      pwd_hash TEXT NOT NULL,  -- base64
-      pwd_salt TEXT NOT NULL,  -- base64
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
-    );
-  `).run();
-  await DB.prepare(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      expires_at INTEGER NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-  `).run();
-  await DB.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);`).run();
-}
+function b64(u8){ let s=""; for(let i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
+function makeCookie(id, exp){ return [`sess=${encodeURIComponent(id)}`,"Path=/","HttpOnly","Secure","SameSite=Lax",`Expires=${new Date(exp*1000).toUTCString()}`].join("; "); }
