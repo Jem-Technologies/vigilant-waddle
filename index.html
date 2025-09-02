@@ -324,12 +324,14 @@
         <h3 id="loginTitle">Login</h3>
         <button class="icon-btn" value="close" aria-label="Close">×</button>
       </header>
-
       <label>Username or Email
         <input type="text" id="loginId" required autocomplete="username email">
       </label>
       <label>Password
         <input type="password" id="loginPwd" required autocomplete="current-password">
+      </label>
+      <label>Organization
+        <input type="text" id="loginOrg" placeholder="e.g., jemtech" required autocomplete="organization">
       </label>
       <div class="form-row small">
         <label class="inline"><input type="checkbox" id="rememberMe"> Remember me</label>
@@ -357,6 +359,9 @@
       </div>
       <div class="form-row">
         <label>Email<input type="email" id="suEmail" required autocomplete="email"></label>
+        <label>Organization (optional)
+          <input type="text" id="suOrg" placeholder="Leave blank to auto-create from your username">
+        </label>
         <label>Company (optional)<input type="text" id="suCompany" autocomplete="organization"></label>
       </div>
       <div class="form-row">
