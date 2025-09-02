@@ -129,27 +129,80 @@
    }
   }
 
-
-
-  function setPresenceDot(v){
-    const dot = $('#presenceDot');
-    dot.style.background = ({available:'var(--success)', busy:'var(--warning)', away:'#888', dnd:'var(--danger)'}[v] || 'var(--success)');
+  // ---- Backend helpers (add near other utilities) ----
+  async function fetchJSON(url, opts={}) {
+    const res = await fetch(url, { credentials: 'include', ...opts });
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) {
+      const msg = data?.error || data?.detail || `HTTP ${res.status}`;
+      throw new Error(`${url}: ${msg}`);
+    }
+    return data || {};
   }
 
-  // ---------- Router ----------
-  const routes = $$('.route');
-  function navigate(hash){
-    const route = (hash || location.hash || '#/').replace('#','');
-    $$('.nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#${route}`));
-    routes.forEach(sec => sec.classList.toggle('active', sec.dataset.route === route));
-    // focus main on navigation
-    $('#main')?.focus({preventScroll:true});
-    // close slideouts on route change
-    hideSheet('notifPanel'); hideSheet('settingsPanel');
-    // update per-route content
-    renderRoute(route);
+  async function hydrateFromBackend() {
+    // 1) who am I (org-scoped)
+    const me = await fetchJSON('/api/me');
+    if (!me?.auth) throw new Error('Not authenticated');
+
+    // keep your local UI role/org in sync with server
+    state.ui.role = me.user.role || 'Member';
+    state.ui.org  = me.org?.slug || state.ui.org || 'my-org';
+
+    // 2) load org users if Admin/Manager (fallback to just "me" otherwise)
+    let users = [];
+    if (state.ui.role === 'Admin' || state.ui.role === 'Manager') {
+      try {
+        const d = await fetchJSON('/api/admin/users');
+        if (Array.isArray(d.users)) users = d.users;
+      } catch (_) { /* ignore; fallback below */ }
+    }
+    if (!users.length) {
+      users = [{
+        id: me.user.id,
+        name: me.user.name || me.user.username || me.user.email,
+        email: me.user.email,
+        role: me.user.role,
+        privileges: me.user.role === 'Admin' ? ['*'] : ['users.read'],
+        createdAt: Date.now()
+      }];
+    }
+
+    // normalize to the shape your table expects
+    state.users = users.map(u => ({
+      id: u.id,
+      name: u.name || u.username || u.email,
+      email: u.email || '',
+      role: u.role || 'Member',
+      privileges: Array.isArray(u.privileges) ? u.privileges
+                  : (u.role === 'Admin' ? ['*'] : ['users.read']),
+      createdAt: u.created_at ? (u.created_at*1000) : (u.createdAt || Date.now())
+    }));
+
     save();
   }
+
+
+    function setPresenceDot(v){
+      const dot = $('#presenceDot');
+      dot.style.background = ({available:'var(--success)', busy:'var(--warning)', away:'#888', dnd:'var(--danger)'}[v] || 'var(--success)');
+    }
+
+    // ---------- Router ----------
+    const routes = $$('.route');
+    function navigate(hash){
+      const route = (hash || location.hash || '#/').replace('#','');
+      $$('.nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#${route}`));
+      routes.forEach(sec => sec.classList.toggle('active', sec.dataset.route === route));
+      // focus main on navigation
+      $('#main')?.focus({preventScroll:true});
+      // close slideouts on route change
+      hideSheet('notifPanel'); hideSheet('settingsPanel');
+      // update per-route content
+      renderRoute(route);
+      save();
+    }
 
   function renderRoute(route){
     if (route === '/') { renderHome(); }
@@ -858,7 +911,7 @@ function getAllTimezones() {
 
 
    // --- Admin Users Manager (panel) ---
-  function renderAdminUsers() {
+  async function renderAdminUsers() {
     const card = document.getElementById('adminUsersCard');
     if (!card) return;
 
@@ -867,18 +920,13 @@ function getAllTimezones() {
     card.hidden = !isAdmin;
     if (!isAdmin) return;
 
-    // Seed with an owner if empty (prototype)
+    // Load users from backend if missing/stale
     if (!state.users || !Array.isArray(state.users) || !state.users.length) {
-      state.users = [{
-        id: uuid(),
-        name: ' data-user-name',
-        email: ' data-user-email',
-        role: 'Admin',
-        privileges: ['*'],
-        password: 'change-me-now',
-        createdAt: Date.now()
-      }];
-      save();
+      try {
+       await hydrateFromBackend();
+      } catch (e) {
+        toast('Could not load users; showing local state');
+      }
     }
 
     function handleDelete(u) {
