@@ -817,6 +817,26 @@
   <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
   <script src="dashboard.js" defer></script>
+  <script>
+  (async function boot() {
+    const res = await fetch("/api/me", { credentials:"include" });
+    const me = await res.json().catch(()=>null);
+    if (!res.ok || !me?.auth) { location.href = "/index.html#login"; return; }
+
+    // Replace placeholders everywhere
+    const nameEls = document.querySelectorAll("[data-user-name]");
+    nameEls.forEach(el => el.textContent = me.user.name || me.user.username || me.user.email);
+
+    const roleEls = document.querySelectorAll("[data-user-role]");
+    roleEls.forEach(el => el.textContent = me.user.role);
+
+    // optional: set avatar initials
+    const initials = (me.user.name || me.user.username || "?")
+      .split(/\s+/).map(p=>p[0]).join("").slice(0,2).toUpperCase();
+    const initEls = document.querySelectorAll("[data-user-initials]");
+    initEls.forEach(el => el.textContent = initials);
+  })();
+  </script>
   <script src="dashboard.auth.js" defer></script>
 </body>
 </html>
