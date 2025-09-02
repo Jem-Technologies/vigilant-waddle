@@ -10,6 +10,7 @@
     } catch {}
     return null;
   }
+
   function slugifyOrg(x) {
     return String(x || "")
       .trim()
@@ -17,11 +18,12 @@
       .replace(/[^a-z0-9-]+/g, "-")
       .replace(/^-+|-+$/g, "");
   }
+
   async function apiPost(url, payload) {
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      credentials: "include",              // ensure Set-Cookie is honored everywhere
+      credentials: "include",              // ensure Set-Cookie is honored
       body: JSON.stringify(payload)
     });
     let data;
@@ -35,6 +37,7 @@
     }
     return data;
   }
+
   function setBusy(btn, busy) {
     if (!btn) return;
     btn.disabled = !!busy;
@@ -49,6 +52,7 @@
 
   // ---------- LOGIN ----------
   const loginForm = document.querySelector("#loginForm");
+  const loginBtn  = document.querySelector("#loginSubmit");
   if (loginForm) {
     // hide org input if already in /o/{slug}/
     const orgFromPath = getOrgFromPath();
@@ -59,41 +63,53 @@
       orgInput.removeAttribute("required");
     }
 
+    // main submit
     loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault(); // prevent <form method="dialog"> from auto-closing
-      const id = (document.querySelector("#loginId")?.value || "").trim();
-      const password = (document.querySelector("#loginPwd")?.value || "").trim();
-
-      // org: prefer URL (/o/{slug}/), else #loginOrg field
-      let org = orgFromPath;
-      if (!org) {
-        const raw = (document.querySelector("#loginOrg")?.value || "").trim();
-        if (!raw) { alert("Please enter your Organization (e.g., rescueroofer)."); return; }
-        org = slugifyOrg(raw);
-      }
-
-      const submitBtn = loginForm.querySelector('.btn.btn-dark');
-      try {
-        setBusy(submitBtn, true);
-        await apiPost("/api/login", { id, password, org });
-        // Use a flat dashboard URL (session is org-scoped on the server)
-        location.href = "/dashboard.html";
-      } catch (err) {
-        alert(`Login failed: ${err.message}`);
-      } finally {
-        setBusy(submitBtn, false);
-      }
+      e.preventDefault();
+      await doLogin(orgFromPath);
     });
+
+    // direct click fallback
+    if (loginBtn) {
+      loginBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        await doLogin(orgFromPath);
+      });
+    }
+  }
+
+  async function doLogin(orgFromPath) {
+    const id = (document.querySelector("#loginId")?.value || "").trim();
+    const password = (document.querySelector("#loginPwd")?.value || "").trim();
+
+    let org = orgFromPath;
+    if (!org) {
+      const raw = (document.querySelector("#loginOrg")?.value || "").trim();
+      if (!raw) { alert("Please enter your Organization (e.g., jemtech)."); return; }
+      org = slugifyOrg(raw);
+    }
+
+    const submitBtn = document.querySelector('#loginSubmit');
+    try {
+      setBusy(submitBtn, true);
+      await apiPost("/api/login", { id, password, org });
+      // session is org-scoped → flat dashboard path works
+      location.href = "/dashboard.html";
+    } catch (err) {
+      alert(`Login failed: ${err.message}`);
+    } finally {
+      setBusy(submitBtn, false);
+    }
   }
 
   // ---------- SIGNUP ----------
   const signupForm = document.querySelector("#signupForm");
+  const signupBtn  = document.querySelector("#signupSubmit");
   if (signupForm) {
     const pwd = document.querySelector("#suPwd");
     const pwd2 = document.querySelector("#suPwd2");
     const strength = document.querySelector("#pwdStrength");
 
-    // (keep your strength meter working)
     if (pwd && strength) {
       pwd.addEventListener("input", () => {
         const v = pwd.value || "";
@@ -106,45 +122,57 @@
       });
     }
 
+    // main submit
     signupForm.addEventListener("submit", async (e) => {
-      e.preventDefault(); // prevent dialog auto-close
-
-      const name     = (document.querySelector("#suName")?.value || "").trim();
-      const username = (document.querySelector("#suUser")?.value || "").trim();
-      const email    = (document.querySelector("#suEmail")?.value || "").trim();
-      const company  = (document.querySelector("#suCompany")?.value || "").trim();
-      const pass1    = (document.querySelector("#suPwd")?.value || "").trim();
-      const pass2    = (document.querySelector("#suPwd2")?.value || "").trim();
-
-      if (pass1 !== pass2) { alert("Passwords do not match."); return; }
-
-      // org: URL (/o/{slug}/) OR #suOrg field OR derive from username
-      const orgFromPath = getOrgFromPath();
-      const orgField    = slugifyOrg(document.querySelector("#suOrg")?.value || "");
-      const org         = orgFromPath || orgField || slugifyOrg(username);
-
-      const submitBtn = signupForm.querySelector('.btn.btn-dark');
-      try {
-        setBusy(submitBtn, true);
-        await apiPost("/api/signup", {
-          name,
-          username,
-          email,
-          password: pass1,
-          org,
-          orgName: company || undefined
-        });
-        // session is org-scoped → a flat dashboard.html works
-        location.href = "/dashboard.html";
-      } catch (err) {
-        alert(`Signup failed: ${err.message}`);
-      } finally {
-        setBusy(submitBtn, false);
-      }
+      e.preventDefault();
+      await doSignup();
     });
+
+    // direct click fallback
+    if (signupBtn) {
+      signupBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        await doSignup();
+      });
+    }
   }
 
-  // ---------- modal switches (keep your UX) ----------
+  async function doSignup() {
+    const name     = (document.querySelector("#suName")?.value || "").trim();
+    const username = (document.querySelector("#suUser")?.value || "").trim();
+    const email    = (document.querySelector("#suEmail")?.value || "").trim();
+    const company  = (document.querySelector("#suCompany")?.value || "").trim();
+    const pass1    = (document.querySelector("#suPwd")?.value || "").trim();
+    const pass2    = (document.querySelector("#suPwd2")?.value || "").trim();
+
+    if (pass1 !== pass2) { alert("Passwords do not match."); return; }
+    if (!document.querySelector("#suTos")?.checked) { alert("You must agree to the Terms & Privacy."); return; }
+
+    // org: URL (/o/{slug}/) OR #suOrg field OR derive from username
+    const orgFromPath = getOrgFromPath();
+    const orgField    = slugifyOrg(document.querySelector("#suOrg")?.value || "");
+    const org         = orgFromPath || orgField || slugifyOrg(username);
+
+    const submitBtn = document.querySelector('#signupSubmit');
+    try {
+      setBusy(submitBtn, true);
+      await apiPost("/api/signup", {
+        name,
+        username,
+        email,
+        password: pass1,
+        org,
+        orgName: company || undefined
+      });
+      location.href = "/dashboard.html";
+    } catch (err) {
+      alert(`Signup failed: ${err.message}`);
+    } finally {
+      setBusy(submitBtn, false);
+    }
+  }
+
+  // ---------- modal switches ----------
   const swapToSignup = document.querySelector("#swapToSignup");
   const swapToLogin  = document.querySelector("#swapToLogin");
   const loginModal   = document.querySelector("#loginModal");
@@ -156,4 +184,10 @@
   if (swapToLogin && loginModal && signupModal) {
     swapToLogin.addEventListener("click", () => { signupModal.close(); loginModal.showModal(); });
   }
+
+  // ---------- diagnostics (optional, keep/remove) ----------
+  console.log('home.js loaded; forms present:', {
+    loginForm: !!document.querySelector('#loginForm'),
+    signupForm: !!document.querySelector('#signupForm')
+  });
 })();
