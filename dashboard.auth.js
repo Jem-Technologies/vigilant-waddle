@@ -1,42 +1,49 @@
-(() => {
-  'use strict';
-  const $ = (sel, el = document) => el.querySelector(sel);
-  const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts);
-  function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; (document.getElementById('toasts')||(()=>{const x=document.createElement('div');x.id='toasts';x.className='toasts';document.body.appendChild(x);return x;})()).appendChild(t); setTimeout(()=>t.remove(), 3200); }
-  async function api(path){ const res = await fetch(path, { credentials:'include' }); const data = await res.json().catch(()=>({})); if(!res.ok) throw new Error(data.error||'Auth error'); return data; }
-  async function requireAuth(){
-    try {
-      const { user } = await api('/api/me');
-      window.__PU_ME__ = user;
-      const orgSel = $('#orgSelect'); if (orgSel && !orgSel.querySelector('option[value="me"]')) { const opt = document.createElement('option'); opt.value='me'; opt.textContent=user.name || user.email; orgSel.appendChild(opt); orgSel.value='me'; }
-      return user;
-    } catch {
-      location.href = '/index.html#login';
-      return null;
+<script>
+(async function boot() {
+  try {
+    // 1) check auth
+    const meRes = await fetch("/api/me", { method:"GET", credentials:"include" });
+    const me = await meRes.json().catch(()=>({}));
+    if (!meRes.ok || !me?.auth) {
+      // not logged in → go back to landing login
+      location.href = "/index.html#login";
+      return;
     }
-  }
-  on(window, 'DOMContentLoaded', async () => {
-    const me = await requireAuth(); if (!me) return;
-    let tries = 0;
-    const wait = setInterval(() => {
-      tries++;
-      const state = window.state;
-      if (state || tries > 200) {
-        clearInterval(wait);
-        if (!state) { toast('Failed to initialize app state'); return; }
-        state.ui = state.ui || {};
-        state.ui.role = me.role || 'Member';
-        state.users = state.users && state.users.length ? state.users : [{
-          id: me.id, name: me.name || me.email, email: me.email, role: me.role || 'Member',
-          privileges: me.role === 'Admin' ? ['*'] : ['users.read'], password: '—', createdAt: Date.now()
-        }];
-        const roleSel = $('#roleSelect'); if (roleSel) roleSel.value = state.ui.role;
-        if (typeof window.renderAdminUsers === 'function') { try { window.renderAdminUsers(); } catch {} }
+
+    // 2) set UI name/role if you have placeholders
+    window.currentUser = me.user;
+    const roleBadge = document.querySelector("[data-role-badge]");
+    if (roleBadge) roleBadge.textContent = me.user.role;
+
+    // 3) try to load admin users (only if admin panel exists)
+    const adminPanel = document.querySelector("[data-admin-users]");
+    if (adminPanel && (me.user.role === "Admin" || me.user.role === "Manager")) {
+      try {
+        const r = await fetch("/api/admin/users", { credentials:"include" });
+        const d = await r.json().catch(()=>({}));
+        if (r.ok && Array.isArray(d.users)) {
+          // render rows (adapt to your table)
+          const tbody = adminPanel.querySelector("tbody") || adminPanel;
+          tbody.innerHTML = d.users.map(u => `
+            <tr>
+              <td>${escapeHtml(u.name)}</td>
+              <td>${escapeHtml(u.email)}</td>
+              <td>${escapeHtml(u.username)}</td>
+              <td>${escapeHtml(u.role)}</td>
+            </tr>
+          `).join("");
+        }
+      } catch(e) {
+        console.warn("admin/users load failed:", e);
       }
-    }, 50);
-  });
-  window.logoutPU = async function(){
-    try { await fetch('/api/logout', { method:'POST', credentials:'include' }); } catch {}
-    location.href = '/index.html#login';
-  };
+    }
+
+  } catch (e) {
+    console.error("Failed to initialize app state:", e);
+    alert("Failed to initialize app state. Please refresh, or log in again.");
+    location.href = "/index.html#login";
+  }
+
+  function escapeHtml(s){return String(s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 })();
+</script>
