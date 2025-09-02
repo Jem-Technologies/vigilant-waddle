@@ -1,4 +1,6 @@
 // functions/api/signup.js
+const PBKDF2_ITERS = 100_000; // Cloudflare cap
+
 export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return j({ where: "preflight", error: "Database not bound (env.DB missing). Bind D1 as 'DB' in Pages → Settings → Functions." }, 500);
@@ -26,11 +28,11 @@ export async function onRequestPost({ request, env }) {
     const isFirstUser = Number(countRow?.c || 0) === 0;
     const role = isFirstUser ? "Admin" : "Member";
 
-    // Hash password → base64 strings
+    // Hash password → base64 TEXT (avoid BLOB binding quirks)
     const userId = crypto.randomUUID();
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const derived = await pbkdf2(password, salt, 150_000);
-    const hash = new Uint8Array(derived);            // 32 bytes
+    const derived = await pbkdf2(password, salt, PBKDF2_ITERS);
+    const hash = new Uint8Array(derived); // 32 bytes
     const saltB64 = b64encode(salt);
     const hashB64 = b64encode(hash);
 
@@ -48,7 +50,7 @@ export async function onRequestPost({ request, env }) {
       return j({ where: "insert-user", error: "DB insert failed", detail: msg }, 500);
     }
 
-    // Create session (30d)
+    // Session (30d)
     const sessionId = crypto.randomUUID();
     const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
     try {
@@ -77,31 +79,22 @@ function j(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 }
 async function pbkdf2(password, saltBytes, iterations) {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
-  return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
+    return await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
+  } catch (e) {
+    throw new Error(`Pbkdf2 failed: ${String(e?.message || e)}`);
+  }
 }
 function b64encode(uint8) {
   let s = "";
   for (let i = 0; i < uint8.length; i++) s += String.fromCharCode(uint8[i]);
   return btoa(s);
 }
-function b64decodeToU8(str) {
-  const bin = atob(str);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
 function makeSessionCookie(sessionId, expUnix) {
   const expires = new Date(expUnix * 1000).toUTCString();
-  return [
-    `sess=${encodeURIComponent(sessionId)}`,
-    `Path=/`,
-    `HttpOnly`,
-    `Secure`,
-    `SameSite=Lax`,
-    `Expires=${expires}`
-  ].join("; ");
+  return [`sess=${encodeURIComponent(sessionId)}`, `Path=/`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Expires=${expires}`].join("; ");
 }
 async function ensureSchemaCompat(DB) {
   await DB.prepare(`

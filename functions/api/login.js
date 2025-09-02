@@ -1,4 +1,6 @@
 // functions/api/login.js
+const PBKDF2_ITERS = 100_000;
+
 export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return j({ where: "preflight", error: "Database not bound (env.DB missing)." }, 500);
@@ -22,12 +24,11 @@ export async function onRequestPost({ request, env }) {
 
     const saltU8 = b64decodeToU8(user.pwd_salt);
     const expectedHash = b64decodeToU8(user.pwd_hash);
-    const derived = await pbkdf2(password, saltU8, 150_000);
+    const derived = await pbkdf2(password, saltU8, PBKDF2_ITERS);
     const actual = new Uint8Array(derived);
 
     if (!timingSafeEq(actual, expectedHash)) return j({ where: "verify", error: "Invalid credentials" }, 401);
 
-    // New session (30d)
     const sessionId = crypto.randomUUID();
     const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
     try {
@@ -54,9 +55,13 @@ function j(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 }
 async function pbkdf2(password, saltBytes, iterations) {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
-  return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits"]);
+    return await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
+  } catch (e) {
+    throw new Error(`Pbkdf2 failed: ${String(e?.message || e)}`);
+  }
 }
 function b64decodeToU8(str) {
   const bin = atob(str);
