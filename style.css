@@ -121,6 +121,15 @@ input:focus,select:focus,textarea:focus{ outline:2px solid rgba(26,115,232,.35);
 .muted{ color:#667085; }
 .tiny{ font-size:12px; }
 
+/* Keep dialogs above everything and allow clicking inside */
+.modal[open] { z-index: 99999 !important; }
+.modal[open] .modal-card { pointer-events: auto !important; }
+
+/* If any page overlay/backdrop exists, don't let it intercept clicks */
+#overlay, .overlay, .page-overlay, .app-overlay, .backdrop {
+  pointer-events: none !important;
+}
+
 /* ---------- Modals (native <dialog>) */
 .modal::backdrop{ background: rgba(0,0,0,.55); }
 .modal{ border:none; padding:0; }
