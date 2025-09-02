@@ -1187,13 +1187,19 @@ function getAllTimezones() {
   $$('[data-nav]').forEach(btn => on(btn,'click',()=>{ location.hash = btn.dataset.nav; }));
 
   // Bind once on first load
-  window.addEventListener('DOMContentLoaded', () => {
-    // if the admin route is visible at load, set it up
+  window.addEventListener('DOMContentLoaded', async () => {
     if (location.hash.includes('/admin') || location.pathname.endsWith('/admin')) {
-      renderAdmin();          // make sure base admin UI is set
+      renderAdmin();
     }
-    renderAdminUsers();        // bind Users panel controls either way
+    try {
+      await hydrateFromBackend();
+    } catch (e) {
+      // Not fatal; UI will still work with whatever is in local state
+      console.warn('hydrate failed:', e);
+    }
+    await renderAdminUsers(); // render with real data
   });
+
 
   // Boot
   applyThemeFromState();
