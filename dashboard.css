@@ -157,7 +157,7 @@ height: calc(100vh - 64px); }
 .nav-link:hover,  { background: rgba(255,255,255,.06); }
 .nav-link.active { background: var(--primary-faded); color: #fff; }
 
-.main { flex: 1; transition: margin-left .25s ease; padding-left: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;}
+.main { grid-template-columns: 1fr; transition: margin-left .25s ease; padding-left: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;}
 .route { display: none; }
 .route.active { display: block; }
 
