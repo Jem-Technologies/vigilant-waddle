@@ -145,7 +145,8 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .profile select { background: var(--muted); height: var(--h); padding: 0 10px; border-radius: 8px; border: var(--line); }
 
 /* Body layout */
-.app-body { display: grid; grid-template-columns: 200px 1fr; gap: var(--gap); padding: var(--pad); height: calc(100vh - 64px); }
+.app-body { display: grid; grid-template-columns: 200px 1fr; gap: var(--gap); padding: var(--pad); padding-bottom: 0 !important;
+height: calc(100vh - 64px); }
 
 .sidebar { border-right: var(--line); padding-right: var(--pad); transition: transform .25s ease; transform: translateX(-100%); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; }
 .sidebar.open { transform: translateX(0); }
@@ -204,7 +205,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .thread-view { background: rgba(255,255,255,.02); border: var(--line); border-radius: 10px; padding: var(--pad); min-height: 320px; }
 .thread-empty { color: var(--text-muted); padding: 20px; text-align: center; }
 
-.messages { display:flex; flex-direction: column; gap: 8px; min-height: 300px; padding-bottom: var(--pad); }
+.messages { display:flex; flex-direction: column; gap: 8px; min-height: 78vh; padding-bottom: var(--pad); }
 .message { display:flex; gap: 10px; align-items: flex-start; background: rgba(255,255,255,.03); border: var(--line); border-radius: 10px; padding: 10px; }
 .message.me { background: rgba(79,70,229,.08); border-color: rgba(79,70,229,.4); }
 .composer { display:flex; gap: 5px; margin-top: var(--gap); }
