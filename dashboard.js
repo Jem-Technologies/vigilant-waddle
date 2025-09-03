@@ -126,7 +126,9 @@
       document.body.style.setProperty('--primary-faded', `rgba(${rgb.join(', ')}, 0.2)`);
     } else {
       document.body.style.setProperty('--primary-faded', `rgba(0, 0, 0, 0.2)`);
-   }
+    }
+    const userPrimary = state.user?.settings?.color;
+    if (userPrimary) document.body.style.setProperty('--primary', userPrimary);
   }
 
   // ---- Backend helpers (add near other utilities) ----
@@ -149,6 +151,14 @@
     // keep your local UI role/org in sync with server
     state.ui.role = me.user.role || 'Member';
     state.ui.org  = me.org?.slug || state.ui.org || 'my-org';
+
+    if (me?.org) {
+      const orgSel = $('#orgSelect');
+      if (orgSel) {
+        orgSel.innerHTML = `<option value="${me.org.slug}">${me.org.name}</option>`;
+        orgSel.value = me.org.slug;
+      }
+    }
 
     // 2) load org users if Admin/Manager (fallback to just "me" otherwise)
     let users = [];
@@ -235,6 +245,11 @@
 
     // Desktop/tablet: collapse grid column when closed
     appBody && appBody.classList.toggle('sidebar-collapsed', !open);
+    /* NEW: preserve icon-only class from user settings */
+    appBody && appBody.classList.toggle(
+      'sidebar-icon',
+      (state.user?.settings?.sidebarMode || 'normal') === 'icon'
+    );
 
    // Mobile: keep .open to slide in/out, and add a body overlay if desired
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
@@ -794,10 +809,11 @@
   state.user.settings = state.user.settings || {
     density: 'comfortable',
     font: 'system-ui',
-    theme: 'system',
+    theme: 'light',
     color: '#6c7fff',
     language: 'en',
     region: 'auto',
+    sidebarMode: 'normal',   // new in 1.6.0
     timezone: guessTimezone(),
     sounds: { notification: '', ringing: '' },
     profile: { name: '', email: '', bio: '', avatar: '' }
@@ -830,7 +846,14 @@
   setVal('#setProfileName', s.profile.name);
   setVal('#setProfileEmail', s.profile.email);
   setVal('#setProfileBio', s.profile.bio);
+  setVal('#setSidebarMode', s.sidebarMode || 'normal');
   if (s.profile.avatar) $('#avatarPreviewImg').src = s.profile.avatar;
+
+  on($('#setSidebarMode'), 'change', () => {
+    state.user.settings.sidebarMode = $('#setSidebarMode').value;
+    save();
+    applyUserSettings();
+  });
 
   // File inputs
   on($('#setToneNotification'), 'change', (e) => loadAudioAsDataURL(e.target.files[0], 'notification'));
@@ -933,9 +956,13 @@
 function applyUserSettings() {
   const s = state.user?.settings; if (!s) return;
 
-  // Density -> body class
+  // Density
   document.body.classList.remove('density-comfortable','density-cozy','density-compact');
   document.body.classList.add(`density-${s.density || 'comfortable'}`);
+  
+  // Sidebar mode
+  document.querySelector('.app-body')
+    ?.classList.toggle('sidebar-icon', (s.sidebarMode || 'normal') === 'icon');
 
   // Font -> html data attribute
   document.documentElement.setAttribute('data-font', s.font || 'system-ui');
@@ -988,31 +1015,30 @@ function getAllTimezones() {
     }
 
     function handleDelete(u) {
-    // guard: keep at least one Admin in the system
-    if (u.role === 'Admin' && countAdmins() <= 1) {
-      toast('Cannot delete the only Admin');
-      return;
+      // guard: keep at least one Admin in the system
+      if (u.role === 'Admin' && countAdmins() <= 1) {
+        toast('Cannot delete the only Admin');
+        return;
+      }
+
+      // confirmation (simple and effective)
+      const ok = confirm(`Delete user "${u.name}"? This cannot be undone.`);
+      if (!ok) return;
+
+      // if this user is open in the modal, close it
+      const modal = $('#userModal');
+      if (modal.open && modal.dataset.userId === u.id) modal.close();
+
+      // remove
+      state.users = state.users.filter(x => x.id !== u.id);
+      save();
+      renderAdminUsers();
+      toast(`user ${u.name} deleted`);
     }
 
-    // confirmation (simple and effective)
-    const ok = confirm(`Delete user "${u.name}"? This cannot be undone.`);
-    if (!ok) return;
-
-    // if this user is open in the modal, close it
-    const modal = $('#userModal');
-    if (modal.open && modal.dataset.userId === u.id) modal.close();
-
-    // remove
-    state.users = state.users.filter(x => x.id !== u.id);
-    save();
-    renderAdminUsers();
-    toast(`user ${u.name} deleted`);
-  }
-
-  function countAdmins() {
-    return state.users.filter(x => x.role === 'Admin').length;
-  }
-
+    function countAdmins() {
+      return state.users.filter(x => x.role === 'Admin').length;
+    }
 
     // Render table
     const tbody = document.querySelector('#usersTable tbody');
@@ -1279,6 +1305,35 @@ function getAllTimezones() {
           location.href = "/index.html#login";
         }
       });
+
+      function prepareSidebarLabels(){
+        $$('#sidebar .nav-link').forEach(link => {
+          if (link.dataset.prepared) return;
+          link.dataset.prepared = '1';
+
+          // Grab icon element (span/i) and derive label from remaining text
+          const iconEl = link.querySelector('span, i');
+          const iconText = iconEl ? iconEl.textContent : '';
+          const label = link.textContent.replace(iconText, '').trim();
+
+          if (label) {
+            // Create a <span class="label">…</span> to allow CSS hide/show
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'label';
+            labelSpan.textContent = label;
+
+            // Remove stray text nodes and append back cleanly
+            Array.from(link.childNodes).forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove(); });
+            if (iconEl && iconEl.parentNode !== link) link.prepend(iconEl);
+            link.appendChild(labelSpan);
+
+            // Tooltip text for icon-only
+            link.setAttribute('data-tip', label);
+            link.setAttribute('aria-label', label);
+          }
+        });
+      }
+
     })();
   }
 
@@ -1334,7 +1389,9 @@ function getAllTimezones() {
       // Not fatal; UI will still work with whatever is in local state
       console.warn('hydrate failed:', e);
     }
-    await renderAdminUsers(); // render with real data
+    await renderAdminUsers(); // render with real 
+    
+    prepareSidebarLabels();
   });
 
 

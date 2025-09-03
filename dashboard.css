@@ -30,6 +30,21 @@
   
 }
 
+/* PATCH: provide explicit light variables */
+html[data-theme="light"]{
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --muted: #eef1f5;
+  --text: #0b0d10;
+  --text-muted: #475569;
+  --line: 1px solid rgba(0,0,0,.08);
+  --shadow: 0 6px 18px rgba(0,0,0,.08);
+}
+/* Optional: be explicit about dark (defaults already match :root) */
+html[data-theme="dark"]{
+  /* no overrides needed; :root is dark */
+}
+
 [hidden] {
   display: none !important;
 }
@@ -72,7 +87,7 @@ body.wp-dots {
 
 /* Density */
 html[data-density="comfortable"] { --mar: 3px ;--pad: 12px; --nbtnw: 55px;  --gap: 12px; --h: 40px; --text-size: 14px; }
-html[data-density="compact"] { -mar: 5px; --pad: 8px; --nbtnw: 50px; --gap: 8px; --h: 34px; --text-size: 13px; }
+html[data-density="compact"] { --mar: 5px; --pad: 8px; --nbtnw: 50px; --gap: 8px; --h: 34px; --text-size: 13px; }
 body { font-size: var(--text-size); }
 
 /* Top App Bar */
@@ -149,13 +164,30 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 
   /* desktop/tablet: sidebar takes fixed width, main takes rest */
   --sidebar-w: 200px;              /* change to 20vw if you really want a % */
-  grid-template-columns: var(--sidebar-w) 1fr; grid-template-areas: "sidebar main"; }
-
+  grid-template-columns: var(--sidebar-w) 1fr; grid-template-areas: "sidebar main"; transition: grid-template-columns .24s ease;
+}
+.app-body.sidebar-collapsed .sidebar{ width: 0 !important; padding: 0 !important; border-right: 0 !important; visibility: hidden !important; pointer-events: none !important; }
 .app-body.sidebar-collapsed{ grid-template-columns: 0 1fr;}
 
+/* PATCH: icon-only mode — narrow column, hide labels, add tooltips */
+.app-body.sidebar-icon { --sidebar-w: 72px; }
+.app-body.sidebar-icon .sidebar { padding-right: 8px; }
+.app-body.sidebar-icon .sidebar .nav-link { justify-content: center; gap: 8px; }
+.app-body.sidebar-icon .sidebar .nav-link .label { display: none; }
+
+/* Simple data-tip tooltip shown on hover in icon-only mode */
+.app-body.sidebar-icon .sidebar .nav-link[data-tip] { position: relative; }
+.app-body.sidebar-icon .sidebar .nav-link[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+  background: var(--surface); color: var(--text);
+  border: var(--line); border-radius: 8px; padding: 6px 8px; white-space: nowrap; box-shadow: var(--shadow);
+  z-index: 5;
+}
+
 /* ===== Sidebar & Main ===== */
-.sidebar{ grid-area: sidebar; border-right: var(--line); padding-right: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; transform: translateX(-100%); transition: width .25s ease, transform .5s ease;}
-.main{ grid-area: main; transition: margin-left .25s ease; padding-left: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;}
+.sidebar{ grid-area: sidebar; border-right: var(--line); padding-right: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; transition: padding .24s ease, border-color .24s ease; transform: none; transition: width .25s ease, transform .5s ease;}
+.main{ grid-area: main; transition: margin-left .25s ease; min-width: 0; padding-left: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;}
 
 /* ===== Nav / links ===== */
 .sidebar ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
@@ -164,7 +196,6 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .nav-link:hover{ background:rgba(255,255,255,.06); }   /* <- removed stray comma that broke the rule */
 .nav-link.active{ background:var(--primary-faded); color:#fff; }
 .sidebar.open { transform: translateX(0); }
-.sidebar.closed .label {display: none;}
 
 /* ===== Routes ===== */
 .route{ display:none; }
@@ -298,7 +329,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 :focus-visible { border-radius: 10px; outline: none !important; outline-offset: 2px; }
 
 /* Hidden scrollbar for WebKit browsers */
-.main::-webkit-scrollbar, .sidebar::-webkit-scrollbar, .sheet-body::-webkit-scroll
+.main::-webkit-scrollbar, .sidebar::-webkit-scrollbar, .sheet-body::-webkit-scrollbar {display: none;}
 
 /* Optional: consistent sizing for the confirm panel */
 #logoutConfirm .modal-card {
@@ -332,23 +363,18 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
   }
   .sidebar{
     position: fixed;
-    top: 64px;                             /* below your header */
-    bottom: 0;
-    left: 0;
+    top: 64px; bottom: 0; left: 0;
     width: var(--sidebar-w);
     max-width: 80vw;
     background: var(--surface, #111418);
-    transform: translateX(-100%);          /* off-canvas by default */
+    transform: translateX(-100%);          /* mobile off-canvas default */
     z-index: 1000;
+    transition: transform .2s ease;
+  }
+  body.sidebar-open::after{
+    content:''; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index: 999;
   }
   .sidebar.open{ transform: translateX(0); } /* when toggled open on mobile */
-  /* Optionally dim the page when sidebar is open (add .sidebar-open on body) */
-  body.sidebar-open::after{
-    content:'';
-    position:fixed; inset:0;
-    background:rgba(0,0,0,.35);
-    z-index: 999;
-  }
 }
 
 /* --- Admin Users Manager (scoped) --- */
