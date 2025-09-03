@@ -82,7 +82,7 @@
     <!-- App Body -->
     <div class="app-body">
       <!-- Left Navigation (role-aware) -->
-      <nav id="sidebar" class="sidebar" aria-label="Primary">
+      <nav id="sidebar" class="sidebar" aria-hidden="true" aria-label="Primary">
         <ul>
           <li><a href="#/" data-roles="Admin,Manager,Member,Client" class="nav-link"><span>🏠</span> Home / Dashboard</a></li>
 
@@ -231,7 +231,6 @@
           <form class="modal-card" method="dialog">
             <header class="modal-header">
               <h3 id="logoutConfirmTitle">Log out</h3>
-              <button class="icon-btn" type="button" aria-label="Close" value="close">×</button>
             </header>
 
             <div class="modal-body">

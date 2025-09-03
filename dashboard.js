@@ -218,12 +218,61 @@
   }
 
   // ---------- Sidebar & Topbar ----------
-  on($('#btnSidebar'), 'click', () => toggleSidebar());
-  function toggleSidebar(force){
-    state.ui.sidebarOpen = force ?? !state.ui.sidebarOpen;
-    $('#sidebar').classList.toggle('open', state.ui.sidebarOpen);
+  const sidebarEl  = $('#sidebar');
+  const btnSidebar = $('#btnSidebar');
+
+  // apply current state on boot
+  applySidebarState();
+
+  // toggle now also updates ARIA + body class
+  function toggleSidebar(force) {
+    state.ui.sidebarOpen = (force ?? !state.ui.sidebarOpen);
+    applySidebarState();
     save();
   }
+
+  function applySidebarState() {
+    const open = !!state.ui.sidebarOpen;
+    if (!sidebarEl || !btnSidebar) return;
+
+    sidebarEl.classList.toggle('open', open);
+    sidebarEl.setAttribute('aria-hidden', open ? 'false' : 'true');
+    btnSidebar.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+    // optional: lock body scroll on mobile while sidebar is open
+    document.body.classList.toggle('sidebar-open', open);
+  }
+
+  // main toggle button
+  on(btnSidebar, 'click', () => toggleSidebar());
+
+  // close when clicking outside the sidebar (but not the toggle)
+  on(document, 'click', (e) => {
+    if (!state.ui.sidebarOpen) return;
+  if (sidebarEl.contains(e.target) || btnSidebar.contains(e.target)) return;
+    toggleSidebar(false);
+  });
+
+  // close when pressing Escape; Alt+S toggles
+  on(document, 'keydown', (e) => {
+    if (e.key === 'Escape' && state.ui.sidebarOpen) {
+      e.preventDefault();
+      toggleSidebar(false);
+    }
+    if ((e.altKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      toggleSidebar();
+    }
+  });
+
+  // close the sidebar when clicking any nav link/button inside,
+  // unless it has data-keep-open (for submenus etc.)
+  on(sidebarEl, 'click', (e) => {
+    const actionable = e.target.closest('a,button');
+    if (!actionable) return;
+    if (actionable.hasAttribute('data-keep-open')) return;
+    toggleSidebar(false);
+  });
 
   on($('#btnNew'), 'click', (e) => {
     const menu = $('#newMenu');
