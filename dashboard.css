@@ -48,7 +48,7 @@ html, body {
 
 * { box-sizing: border-box; }
 a { color: inherit; text-decoration: none; }
-button, input, select, textarea { font: inherit; color: inherit; border: none; }
+button, input, select, textarea { font: inherit; color: inherit; border: none; background: inherit;}
 textarea { background: var(--bg); border-radius: var(--radius); border-top-left-radius: 0px; }
 button { cursor: pointer; }
 input::placeholder, textarea::placeholder { left: 3px; color: var(--text-muted); }
