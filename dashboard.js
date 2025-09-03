@@ -218,31 +218,38 @@
   }
 
   // ---------- Sidebar & Topbar ----------
-  const sidebarEl  = $('#sidebar');
-  const btnSidebar = $('#btnSidebar');
+  const appBody   = document.querySelector('.app-body');
+  const sidebarEl = document.getElementById('sidebar');
+  const btnSidebar = document.getElementById('btnSidebar');
 
-  // apply current state on boot
   applySidebarState();
 
-  // toggle now also updates ARIA + body class
-  function toggleSidebar(force) {
+  function toggleSidebar(force){
     state.ui.sidebarOpen = (force ?? !state.ui.sidebarOpen);
-      $('#sidebar').classList.toggle('closed', !state.ui.sidebarOpen);
-      $('#btnSidebar').setAttribute('aria-expanded', state.ui.sidebarOpen ? 'true':'false');
     applySidebarState();
     save();
   }
 
-  function applySidebarState() {
+  function applySidebarState(){
     const open = !!state.ui.sidebarOpen;
-    if (!sidebarEl || !btnSidebar) return;
 
-    sidebarEl.classList.toggle('open', open);
-    sidebarEl.setAttribute('aria-hidden', open ? 'false' : 'true');
-    btnSidebar.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // Desktop/tablet: collapse grid column when closed
+    appBody && appBody.classList.toggle('sidebar-collapsed', !open);
 
-    // optional: lock body scroll on mobile while sidebar is open
-    document.body.classList.toggle('sidebar-open', open);
+   // Mobile: keep .open to slide in/out, and add a body overlay if desired
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    if (isMobile){
+      sidebarEl && sidebarEl.classList.toggle('open', open);
+      document.body.classList.toggle('sidebar-open', open);
+    }else{
+      // ensure no leftover mobile classes on desktop
+      sidebarEl && sidebarEl.classList.remove('open');
+      document.body.classList.remove('sidebar-open');
+    }
+
+    // ARIA
+    btnSidebar && btnSidebar.setAttribute('aria-expanded', open ? 'true' : 'false');
+    sidebarEl && sidebarEl.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
 
   // main toggle button

@@ -323,6 +323,32 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
   .grid-cards { grid-template-columns: repeat(4,1fr); }
 }
 
+@media (max-width: 900px){
+  .app-body{
+    grid-template-columns: 1fr;           /* main full width */
+    grid-template-areas: "main";
+  }
+  .sidebar{
+    position: fixed;
+    top: 64px;                             /* below your header */
+    bottom: 0;
+    left: 0;
+    width: var(--sidebar-w);
+    max-width: 80vw;
+    background: var(--surface, #111418);
+    transform: translateX(-100%);          /* off-canvas by default */
+    z-index: 1000;
+  }
+  .sidebar.open{ transform: translateX(0); } /* when toggled open on mobile */
+  /* Optionally dim the page when sidebar is open (add .sidebar-open on body) */
+  body.sidebar-open::after{
+    content:'';
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.35);
+    z-index: 999;
+  }
+}
+
 /* --- Admin Users Manager (scoped) --- */
 #adminUsersCard .table th,
 #adminUsersCard .table td { vertical-align: top; }
