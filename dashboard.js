@@ -405,7 +405,12 @@
   // ---------- Notifications Panel ----------
   on($('#btnNotifications'), 'click', ()=> showSheet('notifPanel'));
   on($('#btnCloseNotif'), 'click', ()=> hideSheet('notifPanel'));
-  function showSheet(id){ const el = document.getElementById(id); el.hidden = false; }
+  function showSheet(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.hidden = false;
+    if (id === 'settingsPanel') initUserSettings();
+  }
   function hideSheet(id){ const el = document.getElementById(id); if (el) el.hidden = true; }
 
   function pushNotif({type='info', title='Notification', body='', priority=false}){
@@ -956,26 +961,26 @@
 function applyUserSettings() {
   const s = state.user?.settings; if (!s) return;
 
-  // Density
-  document.body.classList.remove('density-comfortable','density-cozy','density-compact');
-  document.body.classList.add(`density-${s.density || 'comfortable'}`);
-  
-  // Sidebar mode
-  document.querySelector('.app-body')
-    ?.classList.toggle('sidebar-icon', (s.sidebarMode || 'normal') === 'icon');
+  // Density → attribute that CSS already uses
+  const html = document.documentElement;
+  const d = (s.density === 'cozy') ? 'cozy' : (s.density || 'comfortable');
+  html.setAttribute('data-density', d);
 
-  // Font -> html data attribute
-  document.documentElement.setAttribute('data-font', s.font || 'system-ui');
+  // Font → apply directly so you see it immediately
+  document.body.style.fontFamily = s.font || 'system-ui';
 
-  // Theme
+  // Theme mode → attribute (light/dark/system)
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   const mode = (s.theme === 'system') ? (prefersDark ? 'dark' : 'light') : s.theme;
-  document.documentElement.dataset.theme = mode; // assuming your CSS keys off [data-theme]
+  html.setAttribute('data-theme', mode);
 
-  // Theme color (primary)
-  document.documentElement.style.setProperty('--brand', s.color || '#6c7fff');
+  // Primary color → CSS variable
+  const color = s.color || '#6c7fff';
+  document.body.style.setProperty('--primary', color);
 
-  // Language/Region/Timezone are persisted; you can wire i18n/formatters later.
+  // Keep --primary-faded in sync (used for subtle backgrounds)
+  const rgb = (typeof hexToRgb === 'function') ? hexToRgb(color) : null;
+  document.body.style.setProperty('--primary-faded', rgb ? `rgba(${rgb.join(', ')}, 0.2)` : 'rgba(0,0,0,.2)');
 }
 
 // Utility: best-effort timezone guess
@@ -1397,6 +1402,8 @@ function getAllTimezones() {
 
   // Boot
   applyThemeFromState();
+  initUserSettings();      // <-- NEW: create defaults + bind panel once
+  applyUserSettings(); 
   applyRoleVisibility();
   renderNotifs();
   navigate(location.hash||'#/');
