@@ -789,27 +789,64 @@
     make(v, state.reports.velocity); make(u, state.reports.utilization); make(i, state.reports.inbox);
   }
 
-  // Admin / Theme
-  function renderAdmin(){
-    $('#themePrimary').value = state.ui.themePrimary;
-    $('#wallpaperSelect').value = state.ui.wallpaper;
-    $('#densitySelect').value = state.ui.density;
-    $('#highContrast').checked = !!state.ui.highContrast;
-    on($('#btnSaveTheme'),'click',(e)=>{
-      e.preventDefault();
-      state.ui.themePrimary = $('#themePrimary').value;
-      state.ui.wallpaper = $('#wallpaperSelect').value;
-      state.ui.density = $('#densitySelect').value;
-      state.ui.highContrast = $('#highContrast').checked;
-      applyThemeFromState(); save(); toast('Theme updated');
-      renderAdminUsers(); // attach Users
-    });
-    // Sounds demo
-    $$('[data-sound]').forEach(b => on(b,'click',()=> playSound(b.dataset.sound)));
-  }
+// Admin / Theme
+function renderAdmin(){
+  $('#themePrimary').value = state.ui.themePrimary;
+  $('#wallpaperSelect').value = state.ui.wallpaper;
+  $('#densitySelect').value = state.ui.density;
+  $('#highContrast').checked = !!state.ui.highContrast;
 
-  // ========== User Settings (everyone) ==========
-  function initUserSettings() {
+  on($('#btnSaveTheme'),'click',(e)=>{
+    e.preventDefault();
+    state.ui.themePrimary = $('#themePrimary').value;
+    state.ui.wallpaper    = $('#wallpaperSelect').value;  // 'none'|'gradient'|'dots'
+    state.ui.density      = $('#densitySelect').value;
+    state.ui.highContrast = $('#highContrast').checked;
+    applyThemeFromState(); save(); toast('Theme updated');
+    renderAdminUsers(); // attach Users
+  });
+
+  // Sounds demo
+  $$('[data-sound]').forEach(b => on(b,'click',()=> playSound(b.dataset.sound)));
+}
+
+// ===== Helpers for custom wallpaper layer (blurred) =====
+function ensureWallpaperLayer(){
+  let el = document.getElementById('wpLayer');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'wpLayer';
+    Object.assign(el.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '-1',
+      pointerEvents: 'none',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      backgroundSize: 'cover',
+      filter: 'blur(12px)',
+      transform: 'translateZ(0)',
+      willChange: 'filter, background-image',
+    });
+    document.body.prepend(el);
+  }
+  return el;
+}
+function updateWallpaperLayer(src, mode='cover', blurPx=12){
+  const layer = ensureWallpaperLayer();
+  if (src){
+    layer.style.backgroundImage = `url("${src}")`;
+    layer.style.backgroundSize  = mode || 'cover';
+    layer.style.filter          = `blur(${blurPx}px)`;
+    layer.style.opacity         = '1';
+  } else {
+    layer.style.backgroundImage = 'none';
+    layer.style.opacity         = '0';
+  }
+}
+
+// ========== User Settings (everyone) ==========
+function initUserSettings() {
   state.user = state.user || {};
   state.user.settings = state.user.settings || {
     density: 'comfortable',
@@ -821,7 +858,7 @@
     sidebarMode: 'normal',   // new in 1.6.0
     timezone: guessTimezone(),
     highContrast: false,
-    wallpaper: {scr: '', mode: 'cover'},
+    wallpaper: { src: '', mode: 'cover' },  // FIXED: 'src' (not 'scr')
     sounds: { notification: '', ringing: '' },
     profile: { name: '', email: '', bio: '', avatar: '' }
   };
@@ -856,21 +893,55 @@
   setVal('#setSidebarMode', s.sidebarMode || 'normal');
   if (s.profile.avatar) $('#avatarPreviewImg').src = s.profile.avatar;
 
-  // PREFILL from admin state
-  const wpSel = document.querySelector('#setWallpaperStyle');
-  if (wpSel) wpSel.value = state.ui.wallpaper || 'none';
+  // --- Wallpaper: use Admin CSS styles from settings panel ---
+  // Expect a <select id="setWallpaperStyle"> with values: none|gradient|dots
+  const wpStyleSel = $('#setWallpaperStyle');
+  if (wpStyleSel) {
+    // Prefill from Admin state
+    wpStyleSel.value = state.ui.wallpaper || 'none';
 
-  // BIND change → use the SAME admin path (state.ui.wallpaper + applyThemeFromState)
-  if (wpSel && !wpSel.dataset.bound) {
-    wpSel.dataset.bound = '1';
-    wpSel.addEventListener('change', () => {
-      state.ui.wallpaper = wpSel.value;     // 'none' | 'gradient' | 'dots'
-      applyThemeFromState();                 // already toggles body.wp-gradient/wp-dots
+    if (!wpStyleSel.dataset.bound) {
+      wpStyleSel.dataset.bound = '1';
+      on(wpStyleSel, 'change', () => {
+        state.ui.wallpaper = wpStyleSel.value;   // 'none'|'gradient'|'dots'
+        applyThemeFromState();                   // toggles body.wp-gradient/wp-dots
+        save();
+      });
+    }
+  }
+
+  // --- Custom Wallpaper Upload (blurred) ---
+  // Expect inputs in panel: <input type="file" id="setWallpaperFile" accept="image/*">
+  // Optional: <button id="btnClearWallpaper">
+  const wpFile = $('#setWallpaperFile');
+  if (wpFile && !wpFile.dataset.bound) {
+    wpFile.dataset.bound = '1';
+    on(wpFile, 'change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = () => {
+        state.user.settings.wallpaper = { src: r.result || '', mode: 'cover' };
+        save();
+        applyUserSettings();        // updates blurred overlay layer
+        toast('Wallpaper set');
+      };
+      r.readAsDataURL(file);
+    });
+  }
+  const wpClearBtn = $('#btnClearWallpaper');
+  if (wpClearBtn && !wpClearBtn.dataset.bound) {
+    wpClearBtn.dataset.bound = '1';
+    on(wpClearBtn, 'click', () => {
+      state.user.settings.wallpaper = { src: '', mode: 'cover' };
+      if (wpFile) wpFile.value = '';
       save();
+      applyUserSettings();          // hides overlay layer
+      toast('Wallpaper cleared');
     });
   }
 
-  // High contrast (new in 1.7.0)
+  // High contrast (user level; Admin has its own toggle too)
   const hc = $('#setHighContrast');
   if (hc) {
     hc.checked = !!s.highContrast;
@@ -881,6 +952,7 @@
     });
   }
 
+  // Sidebar mode
   on($('#setSidebarMode'), 'change', () => {
     state.user.settings.sidebarMode = $('#setSidebarMode').value;
     save();
@@ -912,7 +984,7 @@
     toast('Settings reset');
   });
 
-  // Live apply on change (optional, feels instant)
+  // Live apply on change (density/font/theme/color)
   ['#setDensity','#setFont','#setTheme','#setColor'].forEach(sel => {
     on($(sel), 'change', () => { 
       const ns = collectSettings(); 
@@ -933,6 +1005,12 @@
       language: val('#setLanguage','en'),
       region: val('#setRegion','auto'),
       timezone: val('#setTimezone', guessTimezone()),
+      highContrast: !!$('#setHighContrast')?.checked,
+      sidebarMode: val('#setSidebarMode','normal'),
+      wallpaper: {
+        src: s.wallpaper?.src || '',   // keep current unless upload replaces it
+        mode: 'cover'
+      },
       sounds: {
         notification: s.sounds.notification, // preserved unless file chosen
         ringing: s.sounds.ringing
@@ -1004,7 +1082,7 @@ function applyUserSettings() {
   // Sidebar icon-only
   document.querySelector('.app-body')?.classList.toggle('sidebar-icon', s.sidebarMode === 'icon');
 
-  // High contrast
+  // High contrast (user level)
   if (s.highContrast) html.setAttribute('data-contrast', 'high');
   else html.removeAttribute('data-contrast');
 
@@ -1015,11 +1093,17 @@ function applyUserSettings() {
   // Primary color → CSS variable
   const color = s.color || '#6c7fff';
   document.body.style.setProperty('--primary', color);
-
-  // Keep --primary-faded in sync (used for subtle backgrounds)
   const rgb = (typeof hexToRgb === 'function') ? hexToRgb(color) : null;
   document.body.style.setProperty('--primary-faded', rgb ? `rgba(${rgb.join(', ')}, 0.2)` : 'rgba(0,0,0,.2)');
+
+  // Custom wallpaper overlay (blurred)
+  updateWallpaperLayer(s.wallpaper?.src || '', s.wallpaper?.mode || 'cover', 12);
+
+  // ALSO keep Admin CSS wallpaper classes in sync (gradient/dots)
+  // (Admin handlers already call applyThemeFromState(); this is a safety sync)
+  applyThemeFromState?.();
 }
+
 
 // Utility: best-effort timezone guess
 function guessTimezone() {
