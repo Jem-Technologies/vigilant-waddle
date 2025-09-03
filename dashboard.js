@@ -227,7 +227,8 @@
   // toggle now also updates ARIA + body class
   function toggleSidebar(force) {
     state.ui.sidebarOpen = (force ?? !state.ui.sidebarOpen);
-    applySidebarState();
+    $('#sidebar').classList.toggle('closed', !state.ui.sidebarOpen);
+    $('#btnSidebar').setAttribute('aria-expanded', state.ui.sidebarOpen ? 'true':'false');
     save();
   }
 
