@@ -72,7 +72,7 @@
             <option>Member</option>
             <option>Client</option>
           </select>
-          <button id="btnSettings" class="icon-btn" aria-haspopup="dialog" aria-controls="userSettingsCard" title="Settings">
+          <button id="btnSettings" class="icon-btn" aria-haspopup="dialog" aria-controls="settingsPanel" title="Settings">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14,12.94a7.49,7.49,0,0,0,0-1.88l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.42,7.42,0,0,0-1.63-.95l-.38-2.65A.5.5,0,0,0,13.77,2H10.23a.5.5,0,0,0-.5.42L9.35,5.07a7.42,7.42,0,0,0-1.63.95l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L5,11.06a7.49,7.49,0,0,0,0,1.88L2.79,14.59a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.42,7.42,0,0,0,1.63.95l.38,2.65a.5.5,0,0,0,.5.42h3.54a.5.5,0,0,0,.5-.42l.38-2.65a7.42,7.42,0,0,0,1.63-.95l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
           </button>
         </div>
@@ -682,7 +682,7 @@
   </dialog>
 
     <!-- User Settings (everyone can access from top-right panel) -->
-    <div class="card" id="userSettingsCard" aria-labelledby="userSettingsTitle">
+    <div class="card" id="userSettingsCard" role="dialog" aria-modal="false" aria-labelledby="userSettingsTitle">
       <header class="panel-header">
         <h2 id="userSettingsTitle">Settings</h2>
         <span class="muted" id="userSettingsHint">Personalize your experience</span>
