@@ -820,6 +820,8 @@
     region: 'auto',
     sidebarMode: 'normal',   // new in 1.6.0
     timezone: guessTimezone(),
+    highContrast: false,
+    wallpaper: {scr: '', mode: 'cover'},
     sounds: { notification: '', ringing: '' },
     profile: { name: '', email: '', bio: '', avatar: '' }
   };
@@ -853,6 +855,31 @@
   setVal('#setProfileBio', s.profile.bio);
   setVal('#setSidebarMode', s.sidebarMode || 'normal');
   if (s.profile.avatar) $('#avatarPreviewImg').src = s.profile.avatar;
+
+  // PREFILL from admin state
+  const wpSel = document.querySelector('#setWallpaperStyle');
+  if (wpSel) wpSel.value = state.ui.wallpaper || 'none';
+
+  // BIND change → use the SAME admin path (state.ui.wallpaper + applyThemeFromState)
+  if (wpSel && !wpSel.dataset.bound) {
+    wpSel.dataset.bound = '1';
+    wpSel.addEventListener('change', () => {
+      state.ui.wallpaper = wpSel.value;     // 'none' | 'gradient' | 'dots'
+      applyThemeFromState();                 // already toggles body.wp-gradient/wp-dots
+      save();
+    });
+  }
+
+  // High contrast (new in 1.7.0)
+  const hc = $('#setHighContrast');
+  if (hc) {
+    hc.checked = !!s.highContrast;
+    on(hc, 'change', () => {
+      state.user.settings.highContrast = hc.checked;
+      save();
+      applyUserSettings();
+    });
+  }
 
   on($('#setSidebarMode'), 'change', () => {
     state.user.settings.sidebarMode = $('#setSidebarMode').value;
@@ -973,6 +1000,17 @@ function applyUserSettings() {
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   const mode = (s.theme === 'system') ? (prefersDark ? 'dark' : 'light') : s.theme;
   html.setAttribute('data-theme', mode);
+
+  // Sidebar icon-only
+  document.querySelector('.app-body')?.classList.toggle('sidebar-icon', s.sidebarMode === 'icon');
+
+  // High contrast
+  if (s.highContrast) html.setAttribute('data-contrast', 'high');
+  else html.removeAttribute('data-contrast');
+
+  // Avatar preview (if present)
+  const avatarImg = document.getElementById('avatarPreviewImg');
+  if (avatarImg) avatarImg.src = s.profile?.avatar || '';
 
   // Primary color → CSS variable
   const color = s.color || '#6c7fff';

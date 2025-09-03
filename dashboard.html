@@ -684,7 +684,7 @@
   <!-- Settings Panel -->
   <aside id="settingsPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="settingsTitle" hidden>
     <!-- User Settings (everyone can access from top-right panel) -->
-    <div id="userSettingsCard" aria-labelledby="userSettingsTitle">
+    <div class="card" id="userSettingsCard" aria-labelledby="userSettingsTitle">
       <header class="panel-header">
         <h2 id="userSettingsTitle">Settings</h2>
         <span class="muted" id="userSettingsHint">Personalize your experience</span>
@@ -702,6 +702,13 @@
               <option value="compact">Compact</option>
             </select>
           </label>
+          <label>Wallpaper <select id="wallpaperSelect">
+                  <option value="none">None</option>
+                  <option value="gradient">Gradient</option>
+                  <option value="dots">Dots</option>
+                </select>
+          </label>
+          <label>High Contrast <input type="checkbox" id="highContrast"></label>
           <label>Font
             <select id="setFont">
               <option value="system-ui">System UI</option>
