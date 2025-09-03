@@ -154,7 +154,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .app-body.sidebar-collapsed{ grid-template-columns: 0 1fr;}
 
 /* ===== Sidebar & Main ===== */
-.sidebar{ grid-area: sidebar; border-right: var(--line); padding-right: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; transform: none; transition: width .25s ease, transform .25s ease;}
+.sidebar{ grid-area: sidebar; border-right: var(--line); padding-right: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; transform: translateX(-100%); transition: width .25s ease, transform .5s ease;}
 .main{ grid-area: main; transition: margin-left .25s ease; padding-left: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;}
 
 /* ===== Nav / links ===== */
@@ -163,6 +163,8 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .nav-link{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; }
 .nav-link:hover{ background:rgba(255,255,255,.06); }   /* <- removed stray comma that broke the rule */
 .nav-link.active{ background:var(--primary-faded); color:#fff; }
+.sidebar.open { transform: translateX(0); }
+.sidebar.closed .label {display: none;}
 
 /* ===== Routes ===== */
 .route{ display:none; }
