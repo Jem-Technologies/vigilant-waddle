@@ -48,9 +48,9 @@ html, body {
 
 * { box-sizing: border-box; }
 a { color: inherit; text-decoration: none; }
-button, input, select, textarea { font: inherit; color: inherit; background: none; border: none; }
+button, input, select, textarea { font: inherit; color: inherit; background: var(--bg); border: none; border-radius: var(--radius; border-top-left-radius: 0px;); }
 button { cursor: pointer; }
-input::placeholder, textarea::placeholder { color: var(--text-muted); }
+input::placeholder, textarea::placeholder { left: 3px; color: var(--text-muted); }
 hr { border: none; border-top: var(--line); }
 
 .visually-hidden { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
@@ -129,7 +129,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .divider { width: 1px; height: 24px; background: rgba(255,255,255,.1); }
 
 .menu { position: absolute; z-index: 40; right: 50%; transform: translateX(50%);
-  background: var(--surface); border: var(--line); border-radius: 10px; padding: 6px; box-shadow: var(--shadow);
+  background: var(--surface); width:max-content; border: var(--line); border-radius: 10px; padding: 6px; box-shadow: var(--shadow);
 }
 .menu > button { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; }
 .menu > button:hover { background: rgba(255,255,255,.06); }

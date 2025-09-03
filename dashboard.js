@@ -1143,6 +1143,85 @@ function getAllTimezones() {
         {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
       ));
     }
+
+    // ===== Styled logout confirm =====
+    (function () {
+      const STORAGE_KEY = "project_unified_dashboard_state_v1";
+
+      const logoutLink = document.getElementById("logoutLink")
+                        || document.querySelector("[data-logout]")
+                        || document.querySelector('a.nav-link[href="/index.html"]'); // fallback
+
+      const dlg  = document.getElementById("logoutConfirm");
+      if (!logoutLink || !dlg) return;
+
+      const form = dlg.querySelector("form");
+      const xBtn = dlg.querySelector(".icon-btn");
+      const cancelBtn = document.getElementById("logoutCancelBtn");
+      const confirmBtn = document.getElementById("logoutConfirmBtn");
+
+      function openModal() {
+        try { dlg.showModal(); } catch { /* dialog may already be open */ }
+        confirmBtn?.focus();
+      }
+
+      function closeModal() {
+        try { dlg.close(); } catch {}
+      }
+
+      function setBusy(busy) {
+        if (!confirmBtn) return;
+        confirmBtn.disabled = !!busy;
+        confirmBtn.textContent = busy ? "Logging out…" : "Log out";
+      }
+    
+      function clearLocalState() {
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      }
+    
+      async function doServerLogout() {
+        // call your API to clear the session + cookie
+        await fetch("/api/logout", {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type":"application/json" }
+        }).catch(() => {}); // ignore network failures
+      }
+    
+      // Open the styled popup instead of navigating
+      logoutLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        openModal();
+      });
+    
+      // Close handlers
+      xBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModal(); });
+      cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModal(); });
+    
+      // Clicking backdrop closes dialog
+      dlg.addEventListener("click", (e) => {
+        const card = dlg.querySelector(".modal-card");
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+        if (!inside) closeModal();
+      });
+    
+      // Submit = confirm logout
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          await doServerLogout();
+        } finally {
+          clearLocalState();
+          setBusy(false);
+          closeModal();
+          // send them to your landing with login modal hint
+          location.href = "/index.html#login";
+        }
+      });
+    })();
   }
 
 
