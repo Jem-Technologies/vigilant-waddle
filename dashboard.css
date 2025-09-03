@@ -145,10 +145,10 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .profile select { background: var(--muted); height: var(--h); padding: 0 10px; border-radius: 8px; border: var(--line); }
 
 /* ===== Layout container (header is 64px tall) ===== */
-.app-body{ display:grid; gap: var(--gap); padding: var(--pad); padding-bottom: 0 !important; height: calc(100vh - 64px);
+.app-body{ display: grid; gap: var(--gap); padding: var(--pad); padding-bottom: 0 !important; height: calc(100vh - 64px);
 
   /* desktop/tablet: sidebar takes fixed width, main takes rest */
-  --sidebar-w: 260px;              /* change to 20vw if you really want a % */
+  --sidebar-w: 200px;              /* change to 20vw if you really want a % */
   grid-template-columns: var(--sidebar-w) 1fr; grid-template-areas: "sidebar main"; }
 
 .app-body.sidebar-collapsed{ grid-template-columns: 0 1fr;}
