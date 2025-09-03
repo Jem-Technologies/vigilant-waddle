@@ -186,6 +186,22 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
   z-index: 5;
 }
 
+/* Icon-only: shrink column and hide text labels */
+.app-body.sidebar-icon { --sidebar-w: 72px; }
+.app-body.sidebar-icon .sidebar .nav-link { justify-content: center; gap: 8px; }
+.app-body.sidebar-icon .sidebar .nav-link .label { display: none; }
+
+/* Simple tooltip driven by data-tip */
+.app-body.sidebar-icon .sidebar .nav-link[data-tip]{ position: relative; }
+.app-body.sidebar-icon .sidebar .nav-link[data-tip]:hover::after{
+  content: attr(data-tip);
+  position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+  background: var(--surface); color: var(--text);
+  border: var(--line); border-radius: 8px; padding: 6px 8px; white-space: nowrap; box-shadow: var(--shadow);
+  z-index: 5;
+}
+
+
 /* ===== Sidebar & Main ===== */
 .sidebar{ grid-area: sidebar; border-right: var(--line); padding-right: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; transition: padding .24s ease, border-color .24s ease; transform: none; transition: width .25s ease, transform .5s ease;}
 .main{ grid-area: main; transition: margin-left .25s ease; min-width: 0; padding-left: var(--pad); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;}

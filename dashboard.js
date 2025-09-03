@@ -1342,6 +1342,51 @@ function getAllTimezones() {
     })();
   }
 
+  // --- Sidebar label prep (icons + clean labels + tooltips) ---
+  function prepareSidebarLabels() {
+    const links = Array.from(document.querySelectorAll('#sidebar .nav-link'));
+    links.forEach(link => {
+      if (link.dataset.prepared === '1') return;
+      link.dataset.prepared = '1';
+
+      // Get existing icon element if present (emoji span, <i>, or <svg>)
+      const iconEl = link.querySelector('span, i, svg');
+
+      // Build the label text from remaining text nodes
+      const text = Array.from(link.childNodes)
+        .filter(n => n.nodeType === Node.TEXT_NODE)
+        .map(n => n.textContent)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Remove stray text nodes so we can control layout via a .label span
+      Array.from(link.childNodes).forEach(n => {
+        if (n.nodeType === Node.TEXT_NODE) n.remove();
+      });
+
+      // Ensure icon stays first (if it exists)
+      if (iconEl && iconEl.parentElement !== link) {
+        link.prepend(iconEl);
+      }
+
+      // Add <span class="label">…</span> once
+      if (!link.querySelector('.label')) {
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'label';
+        labelSpan.textContent = text;
+        link.appendChild(labelSpan);
+      }
+
+      // Tooltip text for icon-only mode + accessibility label
+      if (text) {
+        link.setAttribute('data-tip', text);
+        link.setAttribute('aria-label', text);
+        link.setAttribute('title', text);
+      }
+    });
+  }
+
 
   // Sounds via WebAudio API (tiny beeps)
   function playSound(kind='default'){
@@ -1395,7 +1440,6 @@ function getAllTimezones() {
       console.warn('hydrate failed:', e);
     }
     await renderAdminUsers(); // render with real 
-    
     prepareSidebarLabels();
   });
 
