@@ -804,7 +804,7 @@ function ensureWallpaperLayer(){
     Object.assign(el.style, {
       position: 'fixed',
       inset: '0',
-      zIndex: '-1',
+      zIndex: '0', // sits above html bg, below app UI
       pointerEvents: 'none',
       backgroundRepeat: 'no-repeat',
       backgroundPosition: 'center',
@@ -846,8 +846,8 @@ function initUserSettings() {
     sidebarMode: 'normal',
     timezone: guessTimezone(),
     highContrast: false,
-    wallpaperStyle: 'none',                    // 'none' | 'gradient' | 'dots'
-    wallpaper: { src: '', mode: 'cover', blur: 12 }, // custom user image
+    wallpaperStyle: 'none',                    // 'none' | 'gradient' | 'dots' | 'custom'
+    wallpaper: { src: '', mode: 'cover', blur: 12 }, // custom image
     sounds: { notification: '', ringing: '' },
     profile: { name: '', email: '', bio: '', avatar: '' }
   };
@@ -869,7 +869,7 @@ function initUserSettings() {
   const card = $('#userSettingsCard');
   if (!card) return;
 
-  // helpers
+  // helpers (expect $, on, toast, save to exist globally)
   function setVal(sel, v){ const el = $(sel); if (el != null) el.value = v; }
   function setChecked(sel, v){ const el = $(sel); if (el != null) el.checked = !!v; }
 
@@ -888,8 +888,9 @@ function initUserSettings() {
 
     const blurInp = $('#setWallpaperBlur');
     const blurVal = $('#setWallpaperBlurVal');
-    if (blurInp){ blurInp.value = Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12; }
-    if (blurVal){ blurVal.textContent = `${Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12}px`; }
+    const bv = Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12;
+    if (blurInp){ blurInp.value = bv; }
+    if (blurVal){ blurVal.textContent = `${bv}px`; }
 
     // Avatar preview from draft
     const img = $('#avatarPreviewImg');
@@ -911,9 +912,14 @@ function initUserSettings() {
     const hc = $('#setHighContrast');
     if (hc) on(hc, 'change', e => { draft.highContrast = e.target.checked; });
 
-    // Wallpaper style (admin CSS classes controlled here)
+    // Wallpaper style (admin CSS classes + custom mode)
     const wpStyleSel = $('#setWallpaperStyle');
-    if (wpStyleSel) on(wpStyleSel, 'change', e => { draft.wallpaperStyle = e.target.value; });
+    if (wpStyleSel) on(wpStyleSel, 'change', e => {
+      draft.wallpaperStyle = e.target.value; // 'none'|'gradient'|'dots'|'custom'
+      if (draft.wallpaperStyle === 'custom' && !draft.wallpaper?.src) {
+        $('#setWallpaperFile')?.click();     // prompt for image (still deferred)
+      }
+    });
 
     // Custom wallpaper upload/clear (DRAFT only)
     const wpFile = $('#setWallpaperFile');
@@ -926,6 +932,7 @@ function initUserSettings() {
           mode: 'cover',
           blur: Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12
         };
+        // keep style as chosen; Save will apply
       };
       r.readAsDataURL(file);
     });
@@ -1085,9 +1092,10 @@ function applyUserSettings() {
     document.body.classList.remove('wp-gradient','wp-dots');
   }
 
-  // Custom wallpaper overlay (blurred, only when SAVED)
+  // Custom wallpaper overlay (blurred) ONLY when style is "custom"
+  const customSrc = (s.wallpaperStyle === 'custom') ? (s.wallpaper?.src || '') : '';
   updateWallpaperLayer(
-    s.wallpaper?.src || '',
+    customSrc,
     s.wallpaper?.mode || 'cover',
     Number.isFinite(+s.wallpaper?.blur) ? +s.wallpaper.blur : 12
   );

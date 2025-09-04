@@ -50,7 +50,7 @@ html[data-theme="light"][data-contrast="high"]{
   display: none !important;
 }
 
-html, body {
+html {
   height: 100%;
   background: var(--bg);
   color: var(--text);
@@ -61,6 +61,8 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   -ms-overflow-style: none; scrollbar-width: none;
 }
+
+ body { background: transparent}
 
 * { box-sizing: border-box; }
 a { color: inherit; text-decoration: none; }
@@ -91,6 +93,37 @@ html[data-density="comfortable"] { --mar: 3px ;--pad: 12px; --nbtnw: 55px;  --ga
 html[data-density="cozy"] { --mar: 4px; --pad: 10px; --nbtnw: 53px; --gap: 10px; --h: 36px; --text-size: 13.5px; }
 html[data-density="compact"] { --mar: 5px; --pad: 8px; --nbtnw: 50px; --gap: 8px; --h: 34px; --text-size: 13px; }
 body { font-size: var(--text-size); }
+
+#wpLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;                 /* crucial: above html bg, below app content */
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  filter: blur(12px);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+/* GRADIENT */
+body.wp-gradient #wpLayer {
+  background-image:
+    radial-gradient(1200px 800px at 15% 10%, color-mix(in oklab, var(--primary) 30%, transparent) 0%, transparent 65%),
+    radial-gradient(1400px 900px at 85% 85%, color-mix(in oklab, var(--primary) 22%, transparent) 0%, transparent 70%);
+  filter: none;                /* gradients should not be blurred */
+  opacity: 1;
+}
+
+/* DOTS */
+body.wp-dots #wpLayer {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,.08) 1px, transparent 1.2px);
+  background-size: 22px 22px;  /* dot pitch */
+  filter: none;                /* patterns should not be blurred */
+  opacity: 1;
+}
 
 /* Top App Bar */
 .topbar {
@@ -163,7 +196,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .profile select { background: var(--muted); height: var(--h); padding: 0 10px; border-radius: 8px; border: var(--line); }
 
 /* ===== Layout container (header is 64px tall) ===== */
-.app-body{ display: grid; gap: var(--gap); padding: var(--pad); padding-bottom: 0 !important; height: calc(100vh - 64px);
+.app-body{ display: grid; position:relative; z-index: 1; gap: var(--gap); padding: var(--pad); padding-bottom: 0 !important; height: calc(100vh - 64px);
 
   /* desktop/tablet: sidebar takes fixed width, main takes rest */
   --sidebar-w: 200px;              /* change to 20vw if you really want a % */
