@@ -819,6 +819,7 @@ function ensureWallpaperLayer(){
   }
   return el;
 }
+
 function updateWallpaperLayer(src, mode='cover', blurPx=12){
   const layer = ensureWallpaperLayer();
   if (src){
@@ -827,8 +828,11 @@ function updateWallpaperLayer(src, mode='cover', blurPx=12){
     layer.style.filter          = `blur(${blurPx}px)`;
     layer.style.opacity         = '1';
   } else {
-    layer.style.backgroundImage = 'none';
-    layer.style.opacity         = '0';
+    // IMPORTANT: clear inline styles so CSS (gradient/dots) can take over
+    layer.style.backgroundImage = '';
+    layer.style.backgroundSize  = '';
+    layer.style.filter          = '';
+    layer.style.opacity         = '';   // don't force 0 here
   }
 }
 
@@ -1085,20 +1089,24 @@ function applyUserSettings() {
   const rgb = (typeof hexToRgb === 'function') ? hexToRgb(color) : null;
   document.body.style.setProperty('--primary-faded', rgb ? `rgba(${rgb.join(', ')}, 0.2)` : 'rgba(0,0,0,.2)');
 
-  // Admin CSS wallpapers → body classes
+  // Body classes for admin styles
   document.body.classList.toggle('wp-gradient', s.wallpaperStyle === 'gradient');
   document.body.classList.toggle('wp-dots',     s.wallpaperStyle === 'dots');
   if (s.wallpaperStyle !== 'gradient' && s.wallpaperStyle !== 'dots'){
     document.body.classList.remove('wp-gradient','wp-dots');
   }
 
-  // Custom wallpaper overlay (blurred) ONLY when style is "custom"
-  const customSrc = (s.wallpaperStyle === 'custom') ? (s.wallpaper?.src || '') : '';
-  updateWallpaperLayer(
-    customSrc,
-    s.wallpaper?.mode || 'cover',
-    Number.isFinite(+s.wallpaper?.blur) ? +s.wallpaper.blur : 12
-  );
+  // Custom image only: hand control to JS; else, clear inline styles
+  if (s.wallpaperStyle === 'custom'){
+    updateWallpaperLayer(
+      s.wallpaper?.src || '',
+      s.wallpaper?.mode || 'cover',
+      Number.isFinite(+s.wallpaper?.blur) ? +s.wallpaper.blur : 12
+    );
+  } else {
+    updateWallpaperLayer('');   // clears inline so CSS can show gradient/dots/none
+  }
+
 
   // Avatar preview (keep in sync)
   const avatarImg = document.getElementById('avatarPreviewImg');
