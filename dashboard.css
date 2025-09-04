@@ -1,7 +1,4 @@
-/* Perfect Unified — styles.css
-   Design tokens and minimal design system (no external libs)
-   Adheres to 1fr/3fr/1fr content grid with collapsible right rail.
-*/
+/* Project Unified — styles.css*/
 
 :root {
   --bg: #0b0d10;
@@ -24,6 +21,7 @@
   --space-6: 24px;
   --space-8: 32px;
   --line: 1px solid rgba(255,255,255,.08);
+  --dots: rgba(255, 255, 255, 0.322);
   
 }
 
@@ -35,6 +33,7 @@ html[data-theme="light"]{
   --text-muted: #475569;
   --line: 1px solid rgba(0,0,0,.08);
   --shadow: 0 10px 30px rgba(0,0,0,.08);
+  --dots: rgba(0, 0, 0, 0.322);
 }
 /* High contrast tweak */
 html[data-contrast="high"]{
@@ -74,20 +73,6 @@ hr { border: none; border-top: var(--line); }
 
 .visually-hidden { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 
-/* Wallpaper options */
-body.wp-gradient {
-  background: radial-gradient(1200px 600px at 20% -10%, rgba(79,70,229,.08), transparent),
-              radial-gradient(1000px 500px at 110% 10%, var(--primary-faded), transparent),
-              var(--bg);
-}
-body.wp-dots {
-  background-image:
-    radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
-    linear-gradient(180deg, transparent, rgba(0,0,0,.2));
-  background-size: 10px 10px, auto;
-  background-position: 0 0, 0 0;
-}
-
 /* Density */
 html[data-density="comfortable"] { --mar: 3px ;--pad: 12px; --nbtnw: 55px;  --gap: 12px; --h: 40px; --text-size: 14px; }
 html[data-density="cozy"] { --mar: 4px; --pad: 10px; --nbtnw: 53px; --gap: 10px; --h: 36px; --text-size: 13.5px; }
@@ -110,17 +95,18 @@ body { font-size: var(--text-size); }
 /* GRADIENT */
 body.wp-gradient #wpLayer {
   background-image:
-    radial-gradient(1200px 800px at 15% 10%, color-mix(in oklab, var(--primary) 30%, transparent) 0%, transparent 65%),
-    radial-gradient(1400px 900px at 85% 85%, color-mix(in oklab, var(--primary) 22%, transparent) 0%, transparent 70%);
-  filter: none;                /* gradients should not be blurred */
+    radial-gradient(1200px 600px at 20% -10%, color-mix(in oklab, var(--primary) 30%, transparent) 0%, transparent 65%),
+    radial-gradient(1000px 500px at 110% 10%, color-mix(in oklab, var(--primary) 22%, transparent) 0%, transparent 70%);
+  filter: none;
   opacity: 1;
 }
 
 /* DOTS */
 body.wp-dots #wpLayer {
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,.08) 1px, transparent 1.2px);
-  background-size: 22px 22px;  /* dot pitch */
+    radial-gradient(circle at 1px 1px, var(--dots) 1px, transparent 1.2px);
+  background-size: 10px 10px, auto;
+  background-position: 0 0, 0 0;
   filter: none;                /* patterns should not be blurred */
   opacity: 1;
 }
@@ -140,8 +126,6 @@ body.wp-dots #wpLayer {
 .logo:hover { background: rgba(255,255,255,.04); }
 .logo-mark { font-weight: 800; background: var(--primary); color: white; border-radius: 6px; padding: 6px 8px; }
 .logo-text { font-weight: 600; letter-spacing: .2px; }
-
-select:not(:-internal-list-box):not([multiple]) option { background: var(--surface); }
 
 .icon-btn { width: var(--h); height: var(--h); border-radius: 8px; display:grid; place-items:center; background: var(--muted); }
 .icon-btn:hover { outline: var(--line); }
@@ -214,59 +198,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
   pointer-events: none !important;
 }
 
-/* ===== Mobile: off-canvas below 900px ===== */
-@media (max-width: 900px){
-
-  /* Grid becomes single column; main fills width */
-  .app-body{
-    grid-template-columns: 1fr;
-  }
-
-  /* Sidebar becomes fixed drawer */
-  .sidebar{
-    position: fixed;
-    top: var(--header-h);
-    bottom: 0;
-    left: 0;
-    width: min(var(--sidebar-w), 86vw);
-    max-width: 86vw;
-    height: auto;
-    background: var(--surface);
-    border-right: var(--line);
-    visibility: visible !important;
-    pointer-events: auto !important;
-    transform: translateX(-100%);
-    transition: transform .2s ease;
-    z-index: 1100;
-  }
-
-  /* When open on mobile, slide in */
-  body.sidebar-open .sidebar{
-    transform: translateX(0);
-  }
-
-  /* Scrim blocks background clicks and dims content */
-  #sbScrim{
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.35);
-    z-index: 999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .2s ease;
-  }
-  body.sidebar-open #sbScrim{
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Prevent content squeeze class from doing anything on mobile */
-  .app-body.sidebar-collapsed{
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Optional: make the hamburger area unclickable while animating (prevents jitter) */
+/* hamburger area unclickable while animating (prevents jitter) */
 .sidebar, .main{ will-change: transform, width; }
 /* ---------- Sidebar Icon-Only tooltips ---------- */
 .app-body.sidebar-icon { --sidebar-w: 72px; }
@@ -274,13 +206,13 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 .app-body.sidebar-icon .sidebar .nav-link .label{ display: none; }
 
 /* Tooltip on hover using data-tip */
-.app-body.sidebar-icon .sidebar .nav-link[data-tip]{ position: relative; }
+.app-body.sidebar-icon .sidebar .nav-link[data-tip]{ position: relative; z-index: 5000;}
 .app-body.sidebar-icon .sidebar .nav-link[data-tip]:hover::after{
   content: attr(data-tip);
   position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
   background: var(--surface); color: var(--text);
   border: var(--line); border-radius: 8px; padding: 6px 8px;
-  white-space: nowrap; box-shadow: var(--shadow); z-index: 5;
+  white-space: nowrap; box-shadow: var(--shadow); z-index: 5000;
 }
 
 /* ===== Sidebar & Main ===== */
@@ -504,37 +436,51 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
-  .dashboard .dash-row, .grid-3 { grid-template-columns: 1fr; }
-  .grid-2 { grid-template-columns: 1fr; }
-  .grid-cards { grid-template-columns: 1fr 1fr; }
-  .three-col { grid-template-columns: 1fr; }
-  .split.two { grid-template-columns: 1fr; }
-  .sidebar { position: fixed; left: 0; top: 56px; bottom: 0; width: 260px; background: var(--bg); padding: 12px; transform: translateX(-100%); transition: transform .2s ease; z-index: 30; }
-  .sidebar.open { transform: translateX(0); }
-  .app-body { grid-template-columns: 1fr; }
-}
-
 @media (min-width: 1440px) {
   .grid-cards { grid-template-columns: repeat(4,1fr); }
 }
 
 @media (max-width: 900px){
-  .app-body{
-    grid-template-columns: 1fr;           /* main full width */
-    grid-template-areas: "main";
-  }
+  .dashboard .dash-row, .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-cards { grid-template-columns: 1fr 1fr; }
+  .three-col { grid-template-columns: 1fr; }
+  .split.two { grid-template-columns: 1fr; }
+  .sidebar.open { transform: translateX(0); }
+  .app-body{ grid-template-columns: 1fr; grid-template-areas: "main"; }
   .sidebar{
-    position: fixed;
-    top: 64px; bottom: 0; left: 0;
-    width: var(--sidebar-w);
+    position: fixed; 
+    visibility: visible !important; 
+    pointer-events: auto !important; 
+    top: 64px; bottom: 0; left: 0; 
+    width: var(--sidebar-w); 
     max-width: 80vw;
-    background: var(--surface, #111418);
-    transform: translateX(-100%);          /* mobile off-canvas default */
-    z-index: 1000;
-    transition: transform .2s ease;
+    height: auto;
+    background: var(--surface, #111418); 
+    transform: translateX(-100%); 
+    z-index: 10; transition: 
+    transform .2s ease; }
+  body.sidebar-open .sidebar{ transform: translateX(0); }
+
+  /* Scrim blocks background clicks and dims content */
+  #sbScrim{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
   }
-  .sidebar.open{ transform: translateX(0); } /* when toggled open on mobile */
+  body.sidebar-open #sbScrim{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Prevent content squeeze class from doing anything on mobile */
+  .app-body.sidebar-collapsed{
+    grid-template-columns: 1fr;
+  }
 }
 
 /* --- Admin Users Manager (scoped) --- */
