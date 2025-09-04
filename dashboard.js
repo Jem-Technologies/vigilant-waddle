@@ -832,29 +832,31 @@ function updateWallpaperLayer(src, mode='cover', blurPx=12){
   }
 }
 
-// ===================== User Settings (single source) =====================
+// ===================== User Settings (single source, deferred apply) =====================
 function initUserSettings() {
+  // persistent store
   state.user = state.user || {};
   state.user.settings = state.user.settings || {
     density: 'comfortable',
     font: 'system-ui',
-    theme: 'light',                 // default UI theme
+    theme: 'light',
     color: '#6c7fff',
     language: 'en',
     region: 'auto',
     sidebarMode: 'normal',
     timezone: guessTimezone(),
     highContrast: false,
-    wallpaper: { src: '', mode: 'cover', blur: 12 }, // user image
+    wallpaperStyle: 'none',                    // 'none' | 'gradient' | 'dots'
+    wallpaper: { src: '', mode: 'cover', blur: 12 }, // custom user image
     sounds: { notification: '', ringing: '' },
-    profile: { name: '', email: '', bio: '', avatar: '' },
-
-    // Admin CSS wallpapers live here now (single source)
-    wallpaperStyle: 'none' // 'none' | 'gradient' | 'dots'
+    profile: { name: '', email: '', bio: '', avatar: '' }
   };
   save();
 
-  // Populate timezone list
+  // -------- DEFERRED APPLY: all edits go into a draft until Save --------
+  let draft = JSON.parse(JSON.stringify(state.user.settings)); // deep clone
+
+  // Populate timezone list (once)
   const tzSel = $('#setTimezone');
   if (tzSel && !tzSel.options.length) {
     (getAllTimezones() || ['UTC']).forEach(tz => {
@@ -864,230 +866,185 @@ function initUserSettings() {
     });
   }
 
-  // Bind UI controls (only once)
   const card = $('#userSettingsCard');
-  if (!card || card.dataset.bound) { applyUserSettings(); return; }
+  if (!card) return;
 
-  // Prefill controls
-  const s = state.user.settings;
-  setVal('#setDensity', s.density);
-  setVal('#setFont', s.font);
-  setVal('#setTheme', s.theme);
-  setVal('#setColor', s.color);
-  setVal('#setLanguage', s.language);
-  setVal('#setRegion', s.region);
-  setVal('#setTimezone', s.timezone);
-  setVal('#setProfileName', s.profile.name);
-  setVal('#setProfileEmail', s.profile.email);
-  setVal('#setProfileBio', s.profile.bio);
-  setVal('#setSidebarMode', s.sidebarMode || 'normal');
+  // helpers
+  function setVal(sel, v){ const el = $(sel); if (el != null) el.value = v; }
+  function setChecked(sel, v){ const el = $(sel); if (el != null) el.checked = !!v; }
 
-  if (s.profile.avatar) $('#avatarPreviewImg').src = s.profile.avatar;
+  // Prefill all controls from the DRAFT
+  function prefillFromDraft(){
+    setVal('#setDensity',      draft.density);
+    setVal('#setFont',         draft.font);
+    setVal('#setTheme',        draft.theme);
+    setVal('#setColor',        draft.color);
+    setVal('#setLanguage',     draft.language);
+    setVal('#setRegion',       draft.region);
+    setVal('#setTimezone',     draft.timezone);
+    setVal('#setSidebarMode',  draft.sidebarMode);
+    setChecked('#setHighContrast', draft.highContrast);
+    setVal('#setWallpaperStyle', draft.wallpaperStyle);
 
-  // Wallpaper style (Admin CSS classes replacement)
-  const wpStyleSel = $('#setWallpaperStyle');
-  if (wpStyleSel) {
-    wpStyleSel.value = s.wallpaperStyle || 'none';
-    if (!wpStyleSel.dataset.bound) {
-      wpStyleSel.dataset.bound = '1';
-      on(wpStyleSel, 'change', () => {
-        state.user.settings.wallpaperStyle = wpStyleSel.value; // 'none'|'gradient'|'dots'
-        save();
-        applyUserSettings(); // toggles body.wp-*
-      });
-    }
+    const blurInp = $('#setWallpaperBlur');
+    const blurVal = $('#setWallpaperBlurVal');
+    if (blurInp){ blurInp.value = Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12; }
+    if (blurVal){ blurVal.textContent = `${Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12}px`; }
+
+    // Avatar preview from draft
+    const img = $('#avatarPreviewImg');
+    if (img) img.src = draft.profile?.avatar || '';
   }
 
-  // Custom Wallpaper Upload + Clear + Blur
-  const wpFile = $('#setWallpaperFile');
-  if (wpFile && !wpFile.dataset.bound) {
-    wpFile.dataset.bound = '1';
-    on(wpFile, 'change', (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  // Bind once per session
+  if (!card.dataset.bound) {
+    // Basic selects/inputs → update DRAFT only
+    on($('#setDensity'),  'change', e => { draft.density  = e.target.value; });
+    on($('#setFont'),     'change', e => { draft.font     = e.target.value; });
+    on($('#setTheme'),    'change', e => { draft.theme    = e.target.value; });
+    on($('#setColor'),    'input',  e => { draft.color    = e.target.value; });
+    on($('#setLanguage'), 'change', e => { draft.language = e.target.value; });
+    on($('#setRegion'),   'change', e => { draft.region   = e.target.value; });
+    on($('#setTimezone'), 'change', e => { draft.timezone = e.target.value; });
+    on($('#setSidebarMode'), 'change', e => { draft.sidebarMode = e.target.value; });
+
+    const hc = $('#setHighContrast');
+    if (hc) on(hc, 'change', e => { draft.highContrast = e.target.checked; });
+
+    // Wallpaper style (admin CSS classes controlled here)
+    const wpStyleSel = $('#setWallpaperStyle');
+    if (wpStyleSel) on(wpStyleSel, 'change', e => { draft.wallpaperStyle = e.target.value; });
+
+    // Custom wallpaper upload/clear (DRAFT only)
+    const wpFile = $('#setWallpaperFile');
+    if (wpFile) on(wpFile, 'change', e => {
+      const file = e.target.files?.[0]; if (!file) return;
       const r = new FileReader();
       r.onload = () => {
-        state.user.settings.wallpaper = {
+        draft.wallpaper = {
           src: r.result || '',
           mode: 'cover',
-          blur: Number.isFinite(+state.user.settings.wallpaper?.blur)
-            ? +state.user.settings.wallpaper.blur
-            : 12
+          blur: Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12
         };
-        save();
-        applyUserSettings();  // updates blurred overlay layer
-        toast('Wallpaper set');
       };
       r.readAsDataURL(file);
     });
-  }
 
-  const wpClearBtn = $('#btnClearWallpaper');
-  if (wpClearBtn && !wpClearBtn.dataset.bound) {
-    wpClearBtn.dataset.bound = '1';
-    on(wpClearBtn, 'click', () => {
-      state.user.settings.wallpaper = {
+    const wpClearBtn = $('#btnClearWallpaper');
+    if (wpClearBtn) on(wpClearBtn, 'click', () => {
+      draft.wallpaper = {
         src: '',
         mode: 'cover',
-        blur: Number.isFinite(+state.user.settings.wallpaper?.blur)
-          ? +state.user.settings.wallpaper.blur
-          : 12
+        blur: Number.isFinite(+draft.wallpaper?.blur) ? +draft.wallpaper.blur : 12
       };
       if (wpFile) wpFile.value = '';
-      save();
-      applyUserSettings(); // hides overlay layer
-      toast('Wallpaper cleared');
     });
-  }
 
-  const blurInp = $('#setWallpaperBlur');
-  const blurVal = $('#setWallpaperBlurVal');
-  if (blurInp) {
-    const b = Number.isFinite(+s.wallpaper?.blur) ? +s.wallpaper.blur : 12;
-    blurInp.value = b;
-    if (blurVal) blurVal.textContent = `${b}px`;
-
-    if (!blurInp.dataset.bound) {
-      blurInp.dataset.bound = '1';
+    // Blur slider → DRAFT only (and label)
+    const blurInp = $('#setWallpaperBlur');
+    const blurVal = $('#setWallpaperBlurVal');
+    if (blurInp){
       const handle = e => {
         const val = Math.max(0, Math.min(30, parseInt(e.target.value || '12', 10)));
-        state.user.settings.wallpaper.blur = val;
+        draft.wallpaper.blur = val;
         if (blurVal) blurVal.textContent = `${val}px`;
-        save();
-        applyUserSettings();
       };
-      blurInp.addEventListener('input', handle);
-      blurInp.addEventListener('change', handle);
+      on(blurInp, 'input', handle);
+      on(blurInp, 'change', handle);
     }
-  }
 
-  // High contrast
-  const hc = $('#setHighContrast');
-  if (hc) {
-    hc.checked = !!s.highContrast;
-    on(hc, 'change', () => {
-      state.user.settings.highContrast = hc.checked;
+    // Sounds (store DataURL in DRAFT). Preview plays from DRAFT.
+    const audioEl = $('#audioPreview');
+    function loadSoundToDraft(file, key){
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { draft.sounds[key] = reader.result || ''; };
+      reader.readAsDataURL(file);
+    }
+    on($('#setToneNotification'), 'change', e => loadSoundToDraft(e.target.files?.[0], 'notification'));
+    on($('#setToneRinging'),      'change', e => loadSoundToDraft(e.target.files?.[0], 'ringing'));
+
+    on($('#btnPreviewNotification'), 'click', () => {
+      const src = (draft.sounds.notification || '').trim();
+      if (!src) return toast('No tone loaded');
+      audioEl.src = src; audioEl.currentTime = 0; audioEl.play().catch(()=>{});
+    });
+    on($('#btnPreviewRinging'), 'click', () => {
+      const src = (draft.sounds.ringing || '').trim();
+      if (!src) return toast('No tone loaded');
+      audioEl.src = src; audioEl.currentTime = 0; audioEl.play().catch(()=>{});
+    });
+
+    // Profile avatar → DRAFT
+    on($('#setProfileAvatar'), 'change', e => {
+      const file = e.target.files?.[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        draft.profile.avatar = reader.result || '';
+        const img = $('#avatarPreviewImg'); if (img) img.src = draft.profile.avatar || '';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Profile text → DRAFT
+    on($('#setProfileName'),  'input', e => { draft.profile.name  = e.target.value; });
+    on($('#setProfileEmail'), 'input', e => { draft.profile.email = e.target.value; });
+    on($('#setProfileBio'),   'input', e => { draft.profile.bio   = e.target.value; });
+
+    // Save = commit DRAFT → persistent state, then apply
+    on($('#btnSaveUserSettings'), 'click', () => {
+      const btn = $('#btnSaveUserSettings');
+      const prev = btn.textContent;
+      btn.textContent = 'Saving…';
+      btn.disabled = true;
+
+      // Commit draft
+      state.user.settings = JSON.parse(JSON.stringify(draft));
       save();
       applyUserSettings();
+
+      setTimeout(() => {
+        btn.textContent = prev;
+        btn.disabled = false;
+        toast('Settings saved');
+      }, 350);
     });
-  }
 
-  // Sidebar mode
-  on($('#setSidebarMode'), 'change', () => {
-    state.user.settings.sidebarMode = $('#setSidebarMode').value;
-    save();
-    applyUserSettings();
-  });
-
-  // Sounds
-  on($('#setToneNotification'), 'change', (e) => loadAudioAsDataURL(e.target.files[0], 'notification'));
-  on($('#setToneRinging'), 'change', (e) => loadAudioAsDataURL(e.target.files[0], 'ringing'));
-  on($('#btnPreviewNotification'), 'click', () => previewTone('notification'));
-  on($('#btnPreviewRinging'), 'click', () => previewTone('ringing'));
-
-  // Profile
-  on($('#setProfileAvatar'), 'change', (e) => loadImageAsDataURL(e.target.files[0]));
-
-  // Save / Reset
-  on($('#btnSaveUserSettings'), 'click', () => {
-    const ns = collectSettings();
-    state.user.settings = ns;
-    save();
-    applyUserSettings();
-    toast('Settings saved');
-  });
-  on($('#btnResetUserSettings'), 'click', () => {
-    if (!confirm('Reset your personal settings to defaults?')) return;
-    delete state.user.settings;
-    initUserSettings();     // re-init to defaults
-    applyUserSettings();
-    toast('Settings reset');
-  });
-
-  // Live apply on change (density/font/theme/color/language/region/timezone)
-  ['#setDensity','#setFont','#setTheme','#setColor','#setLanguage','#setRegion','#setTimezone'].forEach(sel => {
-    const el = $(sel); if (!el) return;
-    on(el, 'change', () => { 
-      const ns = collectSettings(); 
-      state.user.settings = ns; save(); applyUserSettings(); 
+    // Reset = reset DRAFT (not applied until Save)
+    on($('#btnResetUserSettings'), 'click', () => {
+      if (!confirm('Reset your personal settings to defaults?')) return;
+      draft = {
+        density: 'comfortable',
+        font: 'system-ui',
+        theme: 'light',
+        color: '#6c7fff',
+        language: 'en',
+        region: 'auto',
+        sidebarMode: 'normal',
+        timezone: guessTimezone(),
+        highContrast: false,
+        wallpaperStyle: 'none',
+        wallpaper: { src: '', mode: 'cover', blur: 12 },
+        sounds: { notification: '', ringing: '' },
+        profile: { name: '', email: '', bio: '', avatar: '' }
+      };
+      prefillFromDraft();
+      // Not saving/applying until Save
     });
-  });
 
-  card.dataset.bound = '1';
-  applyUserSettings();
+    // Close button
+    on($('#btnCloseSettings'), 'click', () => {
+      document.getElementById('settingsPanel')?.setAttribute('hidden','');
+    });
 
-  // ----- helpers -----
-  function collectSettings() {
-    return {
-      density: val('#setDensity','comfortable'),
-      font: val('#setFont','system-ui'),
-      theme: val('#setTheme','system'),
-      color: val('#setColor','#6c7fff'),
-      language: val('#setLanguage','en'),
-      region: val('#setRegion','auto'),
-      timezone: val('#setTimezone', guessTimezone()),
-      highContrast: !!$('#setHighContrast')?.checked,
-      sidebarMode: val('#setSidebarMode','normal'),
-
-      wallpaperStyle: val('#setWallpaperStyle','none'),
-
-      wallpaper: {
-        src: s.wallpaper?.src || '',
-        mode: 'cover',
-        blur: Number.isFinite(+s.wallpaper?.blur) ? +s.wallpaper.blur : 12
-      },
-      sounds: {
-        notification: s.sounds.notification,
-        ringing: s.sounds.ringing
-      },
-      profile: {
-        name: val('#setProfileName',''),
-        email: val('#setProfileEmail',''),
-        bio: val('#setProfileBio',''),
-        avatar: s.profile.avatar
-      }
-    };
+    card.dataset.bound = '1';
   }
 
-  function loadAudioAsDataURL(file, key) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.user.settings.sounds[key] = reader.result || '';
-      save();
-      toast(`${key === 'notification' ? 'Notification' : 'Ringing'} tone loaded`);
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function loadImageAsDataURL(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.user.settings.profile.avatar = reader.result || '';
-      save();
-      $('#avatarPreviewImg').src = state.user.settings.profile.avatar;
-      toast('Avatar updated');
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function previewTone(key) {
-    const url = (state.user.settings.sounds[key] || '').trim();
-    if (!url) { toast('No tone uploaded'); return; }
-    const a = $('#audioPreview');
-    a.src = url; a.currentTime = 0; a.play().catch(()=>{});
-  }
-
-  function val(sel, fallback='') {
-    const el = $(sel);
-    return el ? (el.value || fallback) : fallback;
-  }
-  function setVal(sel, v) {
-    const el = $(sel); if (el) el.value = v;
-  }
+  // Always prefill latest draft when opening
+  prefillFromDraft();
 }
 
+// Apply SAVED settings to DOM (single source of truth)
 function applyUserSettings() {
   const s = state.user?.settings; if (!s) return;
 
@@ -1105,6 +1062,9 @@ function applyUserSettings() {
   const mode = (s.theme === 'system') ? (prefersDark ? 'dark' : 'light') : s.theme;
   html.setAttribute('data-theme', mode);
 
+  // Language (semantic)
+  if (s.language) { html.setAttribute('lang', s.language); }
+
   // Sidebar icon-only
   document.querySelector('.app-body')?.classList.toggle('sidebar-icon', s.sidebarMode === 'icon');
 
@@ -1121,22 +1081,21 @@ function applyUserSettings() {
   // Admin CSS wallpapers → body classes
   document.body.classList.toggle('wp-gradient', s.wallpaperStyle === 'gradient');
   document.body.classList.toggle('wp-dots',     s.wallpaperStyle === 'dots');
-  if (s.wallpaperStyle !== 'gradient' && s.wallpaperStyle !== 'dots') {
+  if (s.wallpaperStyle !== 'gradient' && s.wallpaperStyle !== 'dots'){
     document.body.classList.remove('wp-gradient','wp-dots');
   }
 
-  // Custom wallpaper overlay (blurred)
+  // Custom wallpaper overlay (blurred, only when SAVED)
   updateWallpaperLayer(
     s.wallpaper?.src || '',
     s.wallpaper?.mode || 'cover',
     Number.isFinite(+s.wallpaper?.blur) ? +s.wallpaper.blur : 12
   );
 
-  // Avatar preview (if present)
+  // Avatar preview (keep in sync)
   const avatarImg = document.getElementById('avatarPreviewImg');
   if (avatarImg) avatarImg.src = s.profile?.avatar || '';
 }
-
 
 // Utility: best-effort timezone guess
 function guessTimezone() {
@@ -1144,16 +1103,16 @@ function guessTimezone() {
   catch { return 'UTC'; }
 }
 
-// Utility: full IANA tz list (trimmed popular + common)
-// You can replace with a smaller curated set if desired.
+// Utility: IANA tz list (curated)
 function getAllTimezones() {
   return [
-    'UTC','Africa/Lagos','Africa/Cairo','Africa/Johannesburg','America/Los_Angeles','America/Denver','America/Chicago','America/New_York',
+    'UTC','Africa/Lagos','Africa/Cairo','Africa/Johannesburg',
+    'America/Los_Angeles','America/Denver','America/Chicago','America/New_York',
     'America/Sao_Paulo','Europe/London','Europe/Berlin','Europe/Paris','Europe/Madrid','Europe/Rome','Europe/Amsterdam',
-    'Europe/Warsaw','Europe/Kiev','Asia/Dubai','Asia/Jerusalem','Asia/Kolkata','Asia/Singapore','Asia/Shanghai','Asia/Tokyo','Australia/Sydney'
+    'Europe/Warsaw','Europe/Kiev','Asia/Dubai','Asia/Jerusalem','Asia/Kolkata','Asia/Singapore','Asia/Shanghai','Asia/Tokyo',
+    'Australia/Sydney'
   ];
 }
-
 
    // --- Admin Users Manager (panel) ---
   async function renderAdminUsers() {
