@@ -349,6 +349,10 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
   border: var(--line); border-radius: 10px; padding: 10px 12px;
   outline: none;
 }
+.form-row input[type="color"]{
+    padding: 0;
+    height: 40px;
+}
 .form-row input[type="range"]{ padding: 6px; }
 .form-row textarea{ resize: vertical; min-height: 70px; }
 
