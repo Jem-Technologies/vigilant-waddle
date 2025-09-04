@@ -681,158 +681,184 @@
     </form>
   </dialog>
 
-  <!-- Settings Panel -->
-  <aside id="settingsPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="settingsTitle" hidden>
-    <!-- User Settings (everyone can access from top-right panel) -->
-    <div class="card" id="userSettingsCard" aria-labelledby="userSettingsTitle">
-      <header class="panel-header">
-        <h2 id="userSettingsTitle">Settings</h2>
-        <span class="muted" id="userSettingsHint">Personalize your experience</span>
-        <button class="icon-btn" id="btnCloseSettings" aria-label="Close" data-close="settingsPanel">&times;</button>
-      </header>
+<!-- Settings Panel -->
+<aside id="settingsPanel" class="sheet" role="dialog" aria-modal="false" aria-labelledby="settingsTitle" hidden>
+  <div class="card" id="userSettingsCard" aria-labelledby="userSettingsTitle">
+    <header class="panel-header">
+      <h2 id="userSettingsTitle">Settings</h2>
+      <span class="muted" id="userSettingsHint">Personalize your experience</span>
+      <button class="icon-btn" id="btnCloseSettings" aria-label="Close" data-close="settingsPanel">&times;</button>
+    </header>
 
-      <!-- Display -->
-      <section class="panel-section">
-        <h3 class="panel-sub">Display</h3>
-        <div class="form-row">
-          <label>Density
-            <select id="setDensity">
-              <option value="comfortable">Comfortable</option>
-              <option value="cozy">Cozy</option>
-              <option value="compact">Compact</option>
-            </select>
-          </label>
-          <label>Wallpaper <select id="wallpaperSelect">
-                  <option value="none">None</option>
-                  <option value="gradient">Gradient</option>
-                  <option value="dots">Dots</option>
-                </select>
-          </label>
-          <label>High Contrast <input type="checkbox" id="highContrast"></label>
-          <label>Font
-            <select id="setFont">
-              <option value="system-ui">System UI</option>
-              <option value="Inter, system-ui, sans-serif">Inter</option>
-              <option value="Roboto, system-ui, sans-serif">Roboto</option>
-              <option value="Poppins, system-ui, sans-serif">Poppins</option>
-              <option value="Georgia, serif">Georgia</option>
-              <option value="Menlo, Consolas, monospace">Monospace</option>
-            </select>
-          </label>
-        </div>
-        <div class="form-row">
-          <label>Sidebar
-            <select id="setSidebarMode">
-              <option value="normal">Normal</option>
-              <option value="icon">Icon only</option>
-            </select>
-          </label>
-        </div>
+    <!-- Display -->
+    <section class="panel-section">
+      <h3 class="panel-sub">Display</h3>
 
-        <div class="form-row">
-          <label>Theme
-            <select id="setTheme">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          <label>Theme Color
-            <input type="color" id="setColor" value="#6c7fff">
-          </label>
-        </div>
-      </section>
+      <div class="form-row">
+        <label>Density
+          <select id="setDensity">
+            <option value="comfortable">Comfortable</option>
+            <option value="cozy">Cozy</option>
+            <option value="compact">Compact</option>
+          </select>
+        </label>
 
-      <!-- Sounds -->
-      <section class="panel-section">
-        <h3 class="panel-sub">Sounds</h3>
-        <div class="form-row">
-          <label>Notification tone
-            <input type="file" id="setToneNotification" accept="audio/*">
-          </label>
-          <button class="btn sm" id="btnPreviewNotification" type="button">Preview</button>
-        </div>
-        <div class="form-row">
-          <label>Ringing tone
-            <input type="file" id="setToneRinging" accept="audio/*">
-          </label>
-          <button class="btn sm" id="btnPreviewRinging" type="button">Preview</button>
-        </div>
-        <audio id="audioPreview" preload="auto" hidden></audio>
-      </section>
+        <label>Font
+          <select id="setFont">
+            <option value="system-ui">System UI</option>
+            <option value="Inter, system-ui, sans-serif">Inter</option>
+            <option value="Roboto, system-ui, sans-serif">Roboto</option>
+            <option value="Poppins, system-ui, sans-serif">Poppins</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Menlo, Consolas, monospace">Monospace</option>
+          </select>
+        </label>
 
-      <!-- Language -->
-      <section class="panel-section">
-        <h3 class="panel-sub">Language</h3>
-        <div class="form-row">
-          <label>Interface language
-            <select id="setLanguage">
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="fr">Français</option>
-              <option value="de">Deutsch</option>
-              <option value="pt">Português</option>
-              <option value="ar">العربية</option>
-              <option value="zh">中文</option>
-              <option value="ja">日本語</option>
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <!-- Profile -->
-      <section class="panel-section">
-        <h3 class="panel-sub">Profile</h3>
-        <div class="form-row">
-          <label>Full name
-            <input type="text" id="setProfileName" placeholder="Your name">
-          </label>
-          <label>Email
-            <input type="email" id="setProfileEmail" placeholder="you@example.com">
-          </label>
-        </div>
-        <div class="form-row">
-          <label>Bio
-            <textarea id="setProfileBio" rows="2" placeholder="Short bio"></textarea>
-          </label>
-        </div>
-        <div class="form-row">
-          <label>Avatar
-            <input type="file" id="setProfileAvatar" accept="image/*">
-          </label>
-          <div class="avatar-preview">
-            <img id="avatarPreviewImg" alt="Avatar preview" />
-          </div>
-        </div>
-      </section>
-
-      <!-- Region & Time zone -->
-      <section class="panel-section">
-        <h3 class="panel-sub">Region &amp; Time zone</h3>
-        <div class="form-row">
-          <label>Region format
-            <select id="setRegion">
-              <option value="auto">Auto (based on browser)</option>
-              <option value="US">United States</option>
-              <option value="GB">United Kingdom</option>
-              <option value="EU">Europe (DD/MM/YYYY)</option>
-              <option value="NG">Nigeria</option>
-              <option value="IN">India</option>
-              <option value="JP">Japan</option>
-            </select>
-          </label>
-          <label>Time zone
-            <select id="setTimezone"></select>
-          </label>
-        </div>
-      </section>
-
-      <div class="btn-row">
-        <button class="btn primary" id="btnSaveUserSettings" type="button">Save</button>
-        <button class="btn" id="btnResetUserSettings" type="button">Reset</button>
+        <label>Sidebar
+          <select id="setSidebarMode">
+            <option value="normal">Normal</option>
+            <option value="icon">Icon only</option>
+          </select>
+        </label>
       </div>
+
+      <div class="form-row">
+        <label>Theme
+          <select id="setTheme">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+
+        <label>Theme Color
+          <input type="color" id="setColor" value="#6c7fff">
+        </label>
+
+        <label class="toggle">
+          <input type="checkbox" id="setHighContrast">
+          <span>High contrast</span>
+        </label>
+      </div>
+
+      <!-- Admin CSS wallpapers (no Admin UI needed) -->
+      <div class="form-row">
+        <label>Wallpaper style
+          <select id="setWallpaperStyle">
+            <option value="none">None</option>
+            <option value="gradient">Gradient</option>
+            <option value="dots">Dots</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Custom blurred wallpaper (user image) -->
+      <div class="form-row">
+        <label>Custom wallpaper
+          <input type="file" id="setWallpaperFile" accept="image/*">
+        </label>
+        <button class="btn sm" id="btnClearWallpaper" type="button">Clear</button>
+      </div>
+
+      <div class="form-row">
+        <label>Blur strength
+          <input type="range" id="setWallpaperBlur" min="0" max="30" step="1">
+        </label>
+        <span class="muted" id="setWallpaperBlurVal"></span>
+      </div>
+    </section>
+
+    <!-- Sounds -->
+    <section class="panel-section">
+      <h3 class="panel-sub">Sounds</h3>
+      <div class="form-row">
+        <label>Notification tone
+          <input type="file" id="setToneNotification" accept="audio/*">
+        </label>
+        <button class="btn sm" id="btnPreviewNotification" type="button">Preview</button>
+      </div>
+      <div class="form-row">
+        <label>Ringing tone
+          <input type="file" id="setToneRinging" accept="audio/*">
+        </label>
+        <button class="btn sm" id="btnPreviewRinging" type="button">Preview</button>
+      </div>
+      <audio id="audioPreview" preload="auto" hidden></audio>
+    </section>
+
+    <!-- Language -->
+    <section class="panel-section">
+      <h3 class="panel-sub">Language</h3>
+      <div class="form-row">
+        <label>Interface language
+          <select id="setLanguage">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="pt">Português</option>
+            <option value="ar">العربية</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section class="panel-section">
+      <h3 class="panel-sub">Profile</h3>
+      <div class="form-row">
+        <label>Full name
+          <input type="text" id="setProfileName" placeholder="Your name">
+        </label>
+        <label>Email
+          <input type="email" id="setProfileEmail" placeholder="you@example.com">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Bio
+          <textarea id="setProfileBio" rows="2" placeholder="Short bio"></textarea>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Avatar
+          <input type="file" id="setProfileAvatar" accept="image/*">
+        </label>
+        <div class="avatar-preview">
+          <img id="avatarPreviewImg" alt="Avatar preview" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Region & Time zone -->
+    <section class="panel-section">
+      <h3 class="panel-sub">Region &amp; Time zone</h3>
+      <div class="form-row">
+        <label>Region format
+          <select id="setRegion">
+            <option value="auto">Auto (based on browser)</option>
+            <option value="US">United States</option>
+            <option value="GB">United Kingdom</option>
+            <option value="EU">Europe (DD/MM/YYYY)</option>
+            <option value="NG">Nigeria</option>
+            <option value="IN">India</option>
+            <option value="JP">Japan</option>
+          </select>
+        </label>
+        <label>Time zone
+          <select id="setTimezone"></select>
+        </label>
+      </div>
+    </section>
+
+    <div class="btn-row">
+      <button class="btn primary" id="btnSaveUserSettings" type="button">Save</button>
+      <button class="btn" id="btnResetUserSettings" type="button">Reset</button>
     </div>
-  </aside>
+  </div>
+</aside>
+
 
   <dialog id="userModal" class="user-modal" aria-labelledby="umTitle">
     <form method="dialog" class="modal-card">
