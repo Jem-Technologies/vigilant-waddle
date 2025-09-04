@@ -216,7 +216,7 @@ select:not(:-internal-list-box):not([multiple]) option { background: var(--surfa
 body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0); }
 
 #userSettingsCard{
-  display: flex; flex-direction: column; height: 100%;
+  display: flex; flex-direction: column; height: 100%; overflow: auto; -ms-overflow-style: none; scrollbar-width: none;
 }
 
 .panel-header{
