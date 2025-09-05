@@ -1,5 +1,5 @@
 // functions/api/groups.js
-import { getAuthed, json } from "../_lib/auth.js";
+import { getAuthed, json } from "./_lib/auth.js";
 
 // ---- helpers ----
 function isAdmin(auth) {
