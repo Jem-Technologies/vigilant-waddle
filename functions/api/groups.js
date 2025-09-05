@@ -1,89 +1,189 @@
 // functions/api/groups.js
 import { getAuthed, json } from "../_lib/auth.js";
 
-export async function onRequestGet({ request, env }) {
-  const auth = await getAuthed(env, request);
-  if (!auth.ok) return json({ error: "unauthorized" }, 401);
-
-  const rows = await env.DB.prepare(`
-    SELECT g.id, g.name, g.org_id, g.department_id, g.created_at,
-           d.name AS department_name,
-           (SELECT COUNT(1) FROM group_members gm WHERE gm.group_id=g.id) AS member_count,
-           (SELECT COUNT(1) FROM threads t WHERE t.group_id=g.id)        AS thread_count
-    FROM groups g
-    LEFT JOIN departments d ON d.id=g.department_id
-    WHERE g.org_id=?1
-    ORDER BY d.name, g.name
-  `).bind(auth.orgId).all();
-
-  return json(rows.results || []);
+function supa(env) {
+  const base = (env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) {
+    throw new Error("MISSING_SUPABASE_ENV: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set");
+  }
+  const headers = {
+    "apikey": key,
+    "Authorization": `Bearer ${key}`,
+  };
+  const rest = (path, init = {}) =>
+    fetch(`${base}/rest/v1${path}`, {
+      ...init,
+      headers: {
+        ...headers,
+        ...(init.headers || {}),
+      },
+    });
+  return { rest };
 }
 
-export async function onRequestPost({ request, env }) {
-  const auth = await getAuthed(env, request);
-  if (!auth.ok) return json({ error: "unauthorized" }, 401);
-
-  // permission: create group
-  let hasPerm = null;
-  try { ({ hasPerm } = await import("../_lib/perm.js")); } catch {}
-  const role = auth.role || auth.user?.role;
-  if (hasPerm ? !hasPerm({ role }, "groups.create") : (role !== "Admin" && role !== "Manager")) {
-    return json({ error: "forbidden" }, 403);
-  }
-
-  const body = await request.json().catch(() => null);
-  const name = body?.name?.trim();
-  const department_id = body?.department_id?.trim();
-  if (!name || !department_id) return json({ error: "name_and_department_required" }, 400);
-
-  // verify department belongs to org
-  const dep = await env.DB.prepare(`SELECT id FROM departments WHERE id=?1 AND org_id=?2`)
-    .bind(department_id, auth.orgId).first();
-  if (!dep) return json({ error: "bad_department" }, 400);
-
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await env.DB
-    .prepare(`INSERT INTO groups (id, org_id, department_id, name, created_at) VALUES (?1, ?2, ?3, ?4, ?5)`)
-    .bind(id, auth.orgId, department_id, name, now).run();
-
-  return json({ id, name, department_id, created_at: now });
+function getOrgId(auth) {
+  return (
+    auth?.org_id ??
+    auth?.orgId ??
+    auth?.user?.org_id ??
+    auth?.session?.org_id ??
+    null
+  );
 }
 
-export async function onRequestDelete({ request, env }) {
-  const auth = await getAuthed(env, request);
-  if (!auth.ok) return json({ error: "unauthorized" }, 401);
+function isAdmin(auth) {
+  return (
+    auth?.admin === true ||
+    auth?.is_admin === true ||
+    auth?.user?.role === "admin" ||
+    auth?.claims?.is_admin === true
+  );
+}
 
-  // permission: delete group
-  let hasPerm = null;
-  try { ({ hasPerm } = await import("../_lib/perm.js")); } catch {}
-  const role = auth.role || auth.user?.role;
-  if (hasPerm ? !hasPerm({ role }, "groups.delete") : (role !== "Admin")) {
-    return json({ error: "forbidden" }, 403);
+export async function onRequestOptions(ctx) {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
+export async function onRequestGet(ctx) {
+  try {
+    const { env, request } = ctx;
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+    if (!isAdmin(auth)) return json({ error: "forbidden" }, 403);
+
+    const org_id = getOrgId(auth);
+    if (!org_id) return json({ error: "missing org_id" }, 400);
+
+    const { rest } = supa(env);
+    const url = new URL(request.url);
+    const q = url.searchParams.get("q");
+    const order = url.searchParams.get("order") || "name";
+
+    const filters = [`org_id=eq.${org_id}`];
+    if (q) filters.push(`name=ilike.*${encodeURIComponent(q)}*`);
+
+    const path = `/groups?${filters.join("&")}&select=id,name,org_id,created_at&order=${encodeURIComponent(
+      order
+    )}`;
+    const res = await rest(path, { method: "GET" });
+
+    const bodyText = await res.text();
+    if (!res.ok) {
+      return json({ error: bodyText || `HTTP ${res.status}`, code: "DB_SELECT_ERROR" }, res.status);
+    }
+    const data = bodyText ? JSON.parse(bodyText) : [];
+    return json({ ok: true, groups: data }, 200);
+  } catch (e) {
+    console.error("[groups][GET] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
+}
 
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
-  if (!id) return json({ error: "id_required" }, 400);
+export async function onRequestPost(ctx) {
+  try {
+    const { env, request } = ctx;
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+    if (!isAdmin(auth)) return json({ error: "forbidden" }, 403);
 
-  // safety checks
-  const check = await env.DB.prepare(`
-    SELECT
-      (SELECT COUNT(1) FROM group_members gm WHERE gm.group_id=?1) AS member_count,
-      (SELECT COUNT(1) FROM threads t WHERE t.group_id=?1)        AS thread_count
-  `).bind(id).first();
+    const org_id = getOrgId(auth);
+    if (!org_id) return json({ error: "missing org_id" }, 400);
 
-  if (!check) return json({ error: "not_found" }, 404);
+    const payload = await request.json().catch(() => null);
+    const name = payload?.name?.trim?.();
+    if (!name) return json({ error: "name is required" }, 400);
 
-  if (check.member_count > 0 || check.thread_count > 0) {
-    return json({
-      error: "conflict",
-      detail: "Group has linked threads/members. Remove or move them first."
-    }, 409);
+    const { rest } = supa(env);
+    const res = await rest(`/groups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Prefer": "return=representation" },
+      body: JSON.stringify({ org_id, name }),
+    });
+
+    const bodyText = await res.text();
+    if (!res.ok) {
+      return json({ error: bodyText || `HTTP ${res.status}`, code: "DB_INSERT_ERROR" }, res.status);
+    }
+    const created = bodyText ? JSON.parse(bodyText) : [];
+    return json({ ok: true, group: created[0] ?? null }, 201);
+  } catch (e) {
+    console.error("[groups][POST] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
+}
 
-  await env.DB.prepare(`DELETE FROM groups WHERE id=?1 AND org_id=?2`)
-    .bind(id, auth.orgId).run();
+export async function onRequestPut(ctx) {
+  try {
+    const { env, request } = ctx;
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+    if (!isAdmin(auth)) return json({ error: "forbidden" }, 403);
 
-  return json({ ok: true, id });
+    const org_id = getOrgId(auth);
+    if (!org_id) return json({ error: "missing org_id" }, 400);
+
+    const payload = await request.json().catch(() => null);
+    const id = payload?.id;
+    const name = payload?.name?.trim?.();
+    if (!id) return json({ error: "id is required" }, 400);
+    if (!name) return json({ error: "name is required" }, 400);
+
+    const { rest } = supa(env);
+    const path = `/groups?id=eq.${encodeURIComponent(id)}&org_id=eq.${encodeURIComponent(org_id)}`;
+    const res = await rest(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Prefer": "return=representation" },
+      body: JSON.stringify({ name }),
+    });
+
+    const bodyText = await res.text();
+    if (!res.ok) {
+      return json({ error: bodyText || `HTTP ${res.status}`, code: "DB_UPDATE_ERROR" }, res.status);
+    }
+    const updated = bodyText ? JSON.parse(bodyText) : [];
+    return json({ ok: true, group: updated[0] ?? null }, 200);
+  } catch (e) {
+    console.error("[groups][PUT] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
+  }
+}
+
+export async function onRequestDelete(ctx) {
+  try {
+    const { env, request } = ctx;
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+    if (!isAdmin(auth)) return json({ error: "forbidden" }, 403);
+
+    const org_id = getOrgId(auth);
+    if (!org_id) return json({ error: "missing org_id" }, 400);
+
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id") || (await request.clone().json().catch(() => null))?.id;
+    if (!id) return json({ error: "id is required" }, 400);
+
+    const { rest } = supa(env);
+    const path = `/groups?id=eq.${encodeURIComponent(id)}&org_id=eq.${encodeURIComponent(org_id)}`;
+    const res = await rest(path, {
+      method: "DELETE",
+      headers: { "Prefer": "count=exact" },
+    });
+
+    if (!res.ok && res.status !== 204) {
+      const txt = await res.text();
+      return json({ error: txt || `HTTP ${res.status}`, code: "DB_DELETE_ERROR" }, res.status);
+    }
+    return json({ ok: true, deleted: 1 }, 200);
+  } catch (e) {
+    console.error("[groups][DELETE] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
+  }
 }
