@@ -1,12 +1,17 @@
 // functions/api/directory.js
 import { getAuthed, json } from "../_lib/auth.js";
+
 export async function onRequestGet({ request, env }) {
   const auth = await getAuthed(env, request);
   if (!auth.ok) return json({ error:"unauthorized" }, 401);
+
   const rows = await env.DB.prepare(`
     WITH my_deps AS (SELECT department_id AS id FROM department_members WHERE user_id=?1),
          my_grps AS (SELECT group_id AS id FROM group_members WHERE user_id=?1)
-    SELECT DISTINCT u.id, u.name, u.username, u.email, u.avatar_url
+    SELECT DISTINCT u.id, u.name, u.username, u.email, u.avatar_url, u.nickname, u.use_nickname,
+           m.role,
+           CASE WHEN u.use_nickname=1 AND u.nickname IS NOT NULL AND u.nickname!=''
+                THEN u.nickname ELSE u.name END AS display_name
       FROM users u
       JOIN user_orgs m ON m.user_id=u.id AND m.org_id=?2
      WHERE u.id != ?1 AND (
@@ -15,5 +20,6 @@ export async function onRequestGet({ request, env }) {
      )
      ORDER BY u.name
   `).bind(auth.userId, auth.orgId).all();
+
   return json(rows.results || []);
 }

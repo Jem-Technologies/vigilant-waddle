@@ -319,10 +319,10 @@ export class OrgHub {
       const div = document.createElement('div'); div.className='bubble'+(mine?' me':'');
       let inner = '';
       if (m.kind==='text') inner = escapeHtml(m.body?.text || (typeof m.body==='string'?m.body:''));
-      else if (m.kind==='voice') inner = `<audio controls src="/cdn/${encodeURIComponent(m.media_url)}"></audio>`;
+      else if (m.kind==='voice') inner = `<audio controls src="/api/cdn/${encodeURIComponent(m.media_url)}"></audio>`;
       else if (m.kind==='file') {
         const name = (m.body?.name) || 'attachment';
-        inner = `<a href="/cdn/${encodeURIComponent(m.media_url)}" target="_blank">📎 ${escapeHtml(name)}</a>`;
+        inner = `<a href="/api/cdn/${encodeURIComponent(m.media_url)}" target="_blank">📎 ${escapeHtml(name)}</a>`;
       } else inner = escapeHtml(m.kind);
       div.innerHTML = `${inner}<time>${fmtTime(m.created_at)}</time>`;
       box.appendChild(div);

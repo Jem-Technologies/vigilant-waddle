@@ -317,6 +317,15 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 .composer input, .input { width: 75%; height: var(--h); border-radius: 10px; padding: 0 12px; background: var(--muted); border: var(--line); outline: none; }
 .composer textarea { width: 100%; min-height: 80px; border-radius: 10px; padding: 10px 12px; background: var(--muted); border: var(--line); outline: none; }
 .composer-actions { display:flex; align-items:center ; flex-direction: row; gap: 5px; }
+.avatar { border-radius: 50%; object-fit: cover; background: #ddd; }
+.avatar.sm { width: 28px; height: 28px; display:inline-block; }
+.avatar.sm.initials { width:28px; height:28px; border-radius:50%; display:inline-grid; place-items:center; font-weight:600; }
+.chip { display:inline-block; padding:.15rem .5rem; border:1px solid var(--hairline,#e3e3e3); border-radius:999px; font-size:.8rem; margin:.1rem; }
+.chip.quiet { opacity:.7; }
+.msg-row { margin: 4px 0; }
+.message-bubble { background: var(--bubble-in,#f4f4f4); padding:.5rem .65rem; border-radius:14px; }
+.message-bubble.mine { background: var(--bubble-out,#d6ecff); }
+
 
 .toolbar { display:flex; align-items:center; gap: var(--gap); margin-bottom: var(--gap); }
 .grid-cards .card { transition: transform .15s ease; }
