@@ -498,6 +498,10 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 /* --- Admin Users Manager (scoped) --- */
 #adminUsersCard .table th,
 #adminUsersCard .table td { vertical-align: top; }
+.table.compact td, .table.compact th { padding: 6px 8px; }
+.table .num { text-align: right; }
+.icon-btn.danger { color: #b91c1c; }
+.table-wrap { overflow:auto; border:1px solid #e5e7eb; border-radius:8px; }
 
 #adminUsersCard .priv-checks {
   display: grid;
@@ -514,6 +518,18 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 #adminUsersCard .form-inline {
   display: flex; gap: 8px; align-items: center;
 }
+
+.avatar.sm{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#e5e7eb;display:inline-block}
+.avatar.sm.initials{display:inline-grid;place-items:center;font-weight:600;color:#374151}
+.row.gap{display:flex;gap:10px;align-items:center}
+.chip.perm{display:inline-block;border:1px solid #e5e7eb;border-radius:999px;padding:.15rem .5rem;font-size:.8rem;margin:.1rem .25rem .1rem 0}
+.perm-wrap .chips{display:inline}
+.perm-wrap .chips.extra{margin-left:.5rem}
+.link-btn{background:none;border:none;color:#2563eb;cursor:pointer;font-size:.85rem}
+.btn.xs{padding:.25rem .5rem;font-size:.8rem;border-radius:.375rem;border:1px solid #e5e7eb;background:#f9fafb}
+.btn.xs.warn{color:#92400e;border-color:#fcd34d;background:#fffbeb}
+.btn.xs.danger{color:#991b1b;border-color:#fecaca;background:#fef2f2}
+tr.is-disabled{opacity:.6}
 
 /* Modal */
 dialog.user-modal::backdrop { background: rgba(0,0,0,.1); backdrop-filter: blur(2px); }

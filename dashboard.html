@@ -564,33 +564,6 @@
         <!-- ADMIN -->
         <section data-route="/admin" class="route">
           <div class="grid-2">
-            <div class="card">
-              <header><h2>Organization & Theme</h2></header>
-              <form id="themeForm" class="form">
-                <label>Theme Color <input type="color" id="themePrimary" value="#4f46e5"></label>
-                <label>Wallpaper <select id="wallpaperSelect">
-                  <option value="none">None</option>
-                  <option value="gradient">Gradient</option>
-                  <option value="dots">Dots</option>
-                </select></label>
-                <label>Density <select id="densitySelect">
-                  <option value="comfortable">Comfortable</option>
-                  <option value="compact">Compact</option>
-                </select></label>
-                <label>High Contrast <input type="checkbox" id="highContrast"></label>
-                <div class="btn-row"><button class="btn" id="btnSaveTheme">Save</button></div>
-              </form>
-            </div>
-            <div class="card">
-              <header><h2>Notification Sounds</h2></header>
-              <div class="btn-row">
-                <button class="btn sm" data-sound="default">Play Default</button>
-                <button class="btn sm" data-sound="priority">Play Priority</button>
-                <button class="btn sm" data-sound="dm">Play DM</button>
-                <button class="btn sm" data-sound="mention">Play Mention</button>
-                <button class="btn sm" data-sound="taskDue">Play Task Due</button>
-              </div>
-            </div>
             <div class="card" id="adminUsersCard" aria-labelledby="usersTitle">
               <header class="panel-header">
                 <h2 id="usersTitle">Users &amp; Roles</h2>
@@ -628,16 +601,9 @@
                   </label>
                 </div>
 
-                <fieldset class="priv-checks">
+                <fieldset class="priv-checks" id="privChecks">
                   <legend class="panel-sub">Privileges</legend>
-                  <label><input type="checkbox" value="users.read" checked> users.read</label>
-                  <label><input type="checkbox" value="users.write"> users.write</label>
-                  <label><input type="checkbox" value="users.manage"> users.manage</label>
-                  <label><input type="checkbox" value="billing.view"> billing.view</label>
-                  <label><input type="checkbox" value="billing.manage"> billing.manage</label>
-                  <label><input type="checkbox" value="projects.create"> projects.create</label>
-                  <label><input type="checkbox" value="posts.publish"> posts.publish</label>
-                  <label><input type="checkbox" value="admin.*"> admin.*</label>
+                  <div id="permGrid" class="grid-perms"></div>
                 </fieldset>
 
                 <div class="btn-row">
@@ -903,11 +869,5 @@
   </script>
   <script src="dashboard.auth.js" defer></script>
   <script src="dashboard-chat-pro.js" defer></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      ChatPro.mount('#chat-root');
-    });
-  </script>
-  <script scr="chat-wiring.js" defer></script>
 </body>
 </html>

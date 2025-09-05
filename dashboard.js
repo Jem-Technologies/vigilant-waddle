@@ -38,6 +38,26 @@
     ] : null;
   };
 
+  // Full granular permissions
+  const ALL_PERMISSIONS = [
+    // User Management
+    "users.create","users.edit","users.delete","users.disable","users.read.all","users.read.details",
+    // Group & Department
+    "groups.create","groups.edit","groups.delete","groups.read",
+    // Content
+    "messages.delete","messages.pin","files.manage","polls.create","events.create",
+    // Administrative & System
+    "system.settings.manage","system.audit.view","system.permissions.manage","system.reports.export"
+  ];
+
+  // Optional: default permissions per role (used when toggling role in form)
+  const ROLE_DEFAULTS = {
+    Admin: ALL_PERMISSIONS.slice(),
+    Manager: ["users.read.all","users.read.details","groups.create","groups.edit","groups.read","polls.create","events.create"],
+    Member: ["polls.create","events.create"],
+    Client: []
+  };
+
   // ---------- Persistence ----------
   const storageKey = 'pu_state_v1';
   const save = () => localStorage.setItem(storageKey, JSON.stringify(state));
@@ -194,30 +214,41 @@
   }
 
 
-    function setPresenceDot(v){
-      const dot = $('#presenceDot');
-      dot.style.background = ({available:'var(--success)', busy:'var(--warning)', away:'#888', dnd:'var(--danger)'}[v] || 'var(--success)');
-    }
+  function setPresenceDot(v){
+    const dot = $('#presenceDot');
+    dot.style.background = ({available:'var(--success)', busy:'var(--warning)', away:'#888', dnd:'var(--danger)'}[v] || 'var(--success)');
+  }
 
-    // ---------- Router ----------
-    const routes = $$('.route');
-    function navigate(hash){
-      const route = (hash || location.hash || '#/').replace('#','');
-      $$('.nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#${route}`));
-      routes.forEach(sec => sec.classList.toggle('active', sec.dataset.route === route));
-      // focus main on navigation
-      $('#main')?.focus({preventScroll:true});
-      // close slideouts on route change
-      hideSheet('notifPanel'); hideSheet('settingsPanel');
-      // update per-route content
-      renderRoute(route);
-      save();
+  // ---------- Router ----------
+  const routes = $$('.route');
+  function navigate(hash){
+    const route = (hash || location.hash || '#/').replace('#','');
+    $$('.nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#${route}`));
+    routes.forEach(sec => sec.classList.toggle('active', sec.dataset.route === route));
+    // focus main on navigation
+    $('#main')?.focus({preventScroll:true});
+    // close slideouts on route change
+    hideSheet('notifPanel'); hideSheet('settingsPanel');
+    // update per-route content
+    renderRoute(route);
+    save();
+
+    mountChatForRoute((location.hash||'#/').replace('#',''));
+  }
+  
+  let _lastRoute = null;
+  function mountChatForRoute(route) {
+    if (route === '/chat') {
+      window.ChatPro?.mount('#chat-root');
+    } else {
+      window.ChatPro?.unmount();
     }
+  }
 
   function renderRoute(route){
     if (route === '/') { renderHome(); }
     else if (route === '/inbox') { renderInbox(); }
-    else if (route === '/chat') { renderChat(); }
+    else if (route === '/chat') { /* legacy off; ChatPro handles UI */ }
     else if (route.startsWith('/workspace')) { renderWorkspace(route); }
     else if (route === '/calendar') { renderCalendar(); }
     else if (route === '/notes') { renderNotes(); }
@@ -225,6 +256,8 @@
     else if (route === '/twin') { renderTwin(); }
     else if (route === '/reports') { renderReports(); }
     else if (route === '/admin') { renderAdmin(); }
+
+    mountChatForRoute(route);
   }
 
   // ---------- Sidebar & Topbar ----------
@@ -791,8 +824,53 @@
 
 // ===================== Admin (nullified) =====================
 function renderAdmin(){
-  // Admin settings are deprecated/removed.
-  // Keeping a no-op to avoid reference errors elsewhere.
+  // inside renderAdminUsers(), after form constants are defined:
+  const permGrid = document.getElementById('permGrid');
+
+  // helper to (re)build the checkbox list
+  function buildPermissionGrid(selected = []) {
+    if (!permGrid) return;
+    const set = new Set(selected);
+    permGrid.innerHTML = ALL_PERMISSIONS.map(key => {
+      const checked = set.has(key) ? 'checked' : '';
+      return `<label class="perm"><input type="checkbox" value="${key}" ${checked}> ${key}</label>`;
+    }).join('');
+  }
+
+  // modify openForm(u)
+  function openForm(u = null) {
+    form.hidden = false;
+    form.dataset.editing = u?.id || '';
+    fieldName.value = u?.name || '';
+    fieldEmail.value = u?.email || '';
+    fieldRole.value = u?.role || 'Member';
+    fieldPass.value = u?.password || generatePassword();
+
+    // NEW: build the grid from ALL_PERMISSIONS
+    const selected = u?.privileges || (ROLE_DEFAULTS[fieldRole.value] || []);
+    buildPermissionGrid(selected);
+
+    // bind role change to apply defaults visually (doesn't save until you click Save)
+    fieldRole.onchange = () => {
+      const role = fieldRole.value;
+      buildPermissionGrid(ROLE_DEFAULTS[role] || []);
+    };
+
+    fieldName.focus();
+  }
+
+  // modify collectForm() to read from our grid
+  function collectForm() {
+    const privs = Array.from(document.querySelectorAll('#adminUsersCard #permGrid input[type="checkbox"]:checked'))
+                       .map(cb => cb.value);
+    return {
+      name: fieldName.value.trim(),
+      email: fieldEmail.value.trim(),
+      role: fieldRole.value,
+      privileges: privs,                         // now the full granular list
+      password: fieldPass.value.trim() || generatePassword()
+    };
+  }
 }
 
 // ===== Helpers for custom wallpaper layer (blurred) =====
