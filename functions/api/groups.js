@@ -3,13 +3,9 @@ import { getAuthed, json } from "../_lib/auth.js";
 
 // ---- helpers ----
 function isAdmin(auth) {
-  return (
-    auth?.admin === true ||
-    auth?.is_admin === true ||
-    auth?.user?.role === "admin" ||
-    auth?.claims?.is_admin === true
-  );
+  return auth?.role === "Admin";
 }
+
 function getOrgId(auth) {
   return (
     auth?.org_id ??

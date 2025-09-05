@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: GET /api/admin/users.details
-import { getAuthed, json } from "../_lib/auth.js";
+import { getAuthed, json } from "../../_lib/auth.js";
 
 export async function onRequestGet({ request, env }) {
   try {
@@ -9,7 +9,7 @@ export async function onRequestGet({ request, env }) {
     // Try to import perm helpers; if import fails, fall back to role==='Admin'
     let hasPerm = null, rolePerms = null;
     try {
-      const mod = await import("../_lib/perm.js");
+      const mod = await import("../../_lib/perm.js");
       hasPerm = mod.hasPerm;
       rolePerms = mod.rolePerms;
     } catch (e) {

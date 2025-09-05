@@ -1,25 +1,40 @@
 // functions/api/me.js
 import { getAuthed, json } from "../_lib/auth.js";
 
-export async function onRequestGet(ctx) {
+export async function onRequestGet({ env, request }) {
   try {
-    const { env, request } = ctx;
     const auth = await getAuthed(env, request);
     if (!auth?.ok) return json({ auth: false }, 401);
 
-    const org_id =
-      auth?.org_id ?? auth?.orgId ?? auth?.user?.org_id ?? auth?.session?.org_id ?? null;
+    // Try to fetch a minimal user profile from DB (optional but nicer for UI).
+    // Keeps working even if DB is missing — you'll just get nulls for name/email/username.
+    let u = null;
+    try {
+      if (env.DB) {
+        u = await env.DB
+          .prepare(`SELECT id, name, username, email FROM users WHERE id=?1 LIMIT 1`)
+          .bind(auth.userId)
+          .first();
+      }
+    } catch (e) {
+      // Don't hard-fail ME endpoint on profile fetch errors
+      console.warn("[me] profile fetch warning:", e);
+    }
+
+    const role = auth?.role ?? "Member";
 
     return json({
       auth: true,
       user: {
-        id: auth?.user?.id ?? null,
-        name: auth?.user?.name ?? auth?.user?.display_name ?? null,
-        username: auth?.user?.username ?? null,
-        email: auth?.user?.email ?? null,
-        role: (auth?.admin || auth?.is_admin || auth?.user?.role === "admin") ? "Admin" : "Member",
+        id: u?.id ?? auth.userId ?? null,
+        name: u?.name ?? null,
+        username: u?.username ?? null,
+        email: u?.email ?? null,
+        role, // should be "Admin" or "Member" coming from getAuthed
       },
-      org: org_id ? { id: org_id, slug: null, name: null } : null
+      org: auth?.orgId
+        ? { id: auth.orgId, slug: auth.orgSlug ?? null, name: null }
+        : null,
     }, 200);
   } catch (e) {
     console.error("[me][GET] unhandled:", e);
