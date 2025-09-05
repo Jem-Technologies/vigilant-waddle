@@ -1,4 +1,3 @@
-// functions/api/uploads/message.js
 export async function onRequestPost({ request, env }){
   const { getAuthed, json } = await import("../../_lib/auth.js");
   const { readUpload } = await import("../../_lib/uploads.js");
@@ -11,11 +10,13 @@ export async function onRequestPost({ request, env }){
   if (!file) return json({ error: "missing file" }, 400);
 
   const now = Date.now();
-  const safe = (filename || "upload.bin").replace(/[^a-zA-Z0-9_.-]+/g, "-");
-  const key = `${auth.orgSlug}/threads/${now}-${crypto.randomUUID()}-${safe}`;
+  const safeName = (filename || "upload.bin").replace(/[^a-zA-Z0-9_.-]+/g, "-");
+  const key = `${auth.orgSlug}/threads/${now}-${crypto.randomUUID()}-${safeName}`;
 
   await env.BUCKET.put(key, file.stream(), {
     httpMetadata: { contentType: contentType || "application/octet-stream" }
   });
+
+  // Store only the key; your client can resolve via /cdn/<key> or similar
   return json({ url: key, contentType: contentType || "application/octet-stream" });
 }
