@@ -140,7 +140,9 @@
     // Loaders
     async function loadDepartments() {
       const r = await fetch('/api/departments', { credentials:'include' });
-      const arr = await r.json().catch(()=>[]);
+      const arrMaybe = await r.json().catch(()=>[]);
+      const arr = Array.isArray(arrMaybe) ? arrMaybe : (arrMaybe?.departments ?? arrMaybe?.items ?? []);
+      if (!Array.isArray(arr)) { console.warn('departments returned non-array:', arrMaybe); toast('Failed to load departments','error'); return; }
       // Fill select for groups form
       elGrpDept.innerHTML = `<option value="">Select…</option>` + arr.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
       // Fill table
@@ -157,7 +159,9 @@
 
     async function loadGroups() {
       const r = await fetch('/api/groups', { credentials:'include' });
-      const arr = await r.json().catch(()=>[]);
+      const arrMaybe = await r.json().catch(()=>[]);
+      const arr = Array.isArray(arrMaybe) ? arrMaybe : (arrMaybe?.groups ?? arrMaybe?.items ?? []);
+      if (!Array.isArray(arr)) { console.warn('groups returned non-array:', arrMaybe); toast('Failed to load groups','error'); return; }
       elGrpTbl.innerHTML = arr.map(g => `
         <tr data-id="${g.id}">
           <td>${escapeHtml(g.name)}</td>
@@ -376,10 +380,6 @@
       }
     });
   }
-
-  // call once after admin boot
-  // await renderUsersTable();
-
 
 
   // ---- Settings: Nickname / Use nickname ----

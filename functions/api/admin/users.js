@@ -1,98 +1,179 @@
-// functions/api/admin/users.js
-// GET  /api/admin/users  -> list users in my org
-// POST /api/admin/users  -> create user in my org (returns temp password)
+// functions/api/users.js
+import { getAuthed, json } from "../_lib/auth.js";
 
-const PBKDF2_ITERS = 100_000;
-
-export async function onRequestGet({ request, env }) {
-  const me = await auth(env, request);
-  if (!me.ok) return j(me.body, me.status);
-  if (!isManager(me)) return j({ error:"Forbidden" }, 403);
-
-  const rows = await env.DB.prepare(
-    `SELECT u.id, u.name, u.username, u.email, m.role, u.created_at
-       FROM user_orgs m
-       JOIN users u ON u.id=m.user_id
-      WHERE m.org_id=?1
-      ORDER BY u.created_at DESC
-      LIMIT 200`
-  ).bind(me.org.id).all();
-
-  return j({ users: rows.results || [] });
+// ---------- helpers ----------
+function ensureDB(env) {
+  if (!env?.DB) throw new Error("D1 binding env.DB is missing. Add it in wrangler.toml and your Pages/Worker bindings.");
+}
+function isAdmin(auth) {
+  return (
+    auth?.admin === true ||
+    auth?.is_admin === true ||
+    auth?.user?.role === "admin" ||
+    auth?.claims?.is_admin === true
+  );
+}
+function getOrgId(auth) {
+  return (
+    auth?.org_id ??
+    auth?.orgId ??
+    auth?.user?.org_id ??
+    auth?.session?.org_id ??
+    null
+  );
 }
 
-export async function onRequestPost({ request, env }) {
-  const me = await auth(env, request);
-  if (!me.ok) return j(me.body, me.status);
-  if (!isManager(me)) return j({ error:"Forbidden" }, 403);
-
-  const body = await request.json().catch(()=>null);
-  if (!body) return j({ error:"Invalid JSON" }, 400);
-
-  const name = (body.name||"").trim();
-  const username = (body.username||"").trim().toLowerCase();
-  const email = (body.email||"").trim().toLowerCase();
-  const role = (body.role||"Member").trim();
-  if (!name || !username || !email) return j({ error:"name, username, email required" }, 400);
-
-  const temp = genTemp(12);
-
-  // ensure user exists
-  let user = await env.DB.prepare(`SELECT id FROM users WHERE lower(email)=?1 OR lower(username)=?2 LIMIT 1`)
-    .bind(email, username).first();
-
-  if (!user) {
-    const { hashB64, saltB64 } = await hashPassword(temp);
-    const uid = crypto.randomUUID();
+async function ensureOrgBasics(env, org_id) {
+  // Ensure 'Admin' role
+  let { results: r1 } = await env.DB
+    .prepare(`SELECT id FROM roles WHERE org_id = ? AND name = 'Admin'`)
+    .bind(org_id).all();
+  let adminRoleId = r1?.[0]?.id;
+  if (!adminRoleId) {
+    adminRoleId = crypto.randomUUID();
     await env.DB.prepare(
-      `INSERT INTO users (id, name, username, email, role, pwd_hash, pwd_salt, created_at)
-       VALUES (?1, ?2, ?3, ?4, 'Member', ?5, ?6, unixepoch())`
-    ).bind(uid, name, username, email, hashB64, saltB64).run();
-    user = { id: uid };
+      `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
+       VALUES (?, ?, 'Admin', 'Full access', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+    ).bind(adminRoleId, org_id).run();
   }
 
-  // link to org (upsert)
-  await env.DB.prepare(
-    `INSERT OR REPLACE INTO user_orgs (user_id, org_id, role, created_at)
-     VALUES (?1, ?2, ?3, unixepoch())`
-  ).bind(user.id, me.org.id, role).run();
+  // Ensure 'Member' role
+  let { results: r2 } = await env.DB
+    .prepare(`SELECT id FROM roles WHERE org_id = ? AND name = 'Member'`)
+    .bind(org_id).all();
+  let memberRoleId = r2?.[0]?.id;
+  if (!memberRoleId) {
+    memberRoleId = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
+       VALUES (?, ?, 'Member', 'Default member', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+    ).bind(memberRoleId, org_id).run();
+  }
 
-  return j({ ok:true, user_id: user.id, temp_password: temp });
+  // Ensure Admin has ALL permissions
+  const { results: perms } = await env.DB
+    .prepare(`SELECT id FROM permissions`).all();
+  if (Array.isArray(perms) && perms.length) {
+    const stmts = perms.map(p =>
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO role_permissions (role_id, permission_id, created_at)
+         VALUES (?, ?, CURRENT_TIMESTAMP)`
+      ).bind(adminRoleId, p.id)
+    );
+    await env.DB.batch(stmts);
+  }
+
+  return { adminRoleId, memberRoleId };
 }
 
-// ---- helpers ----
-async function auth(env, request) {
-  if (!env.DB) return { ok:false, status:500, body:{ error:"env.DB missing" } };
-  const cookie = request.headers.get("cookie")||"";
-  const sess = parseCookie(cookie).sess;
-  if (!sess) return { ok:false, status:401, body:{ error:"Unauthorized" } };
-
-  const now = Math.floor(Date.now()/1000);
-  const row = await env.DB.prepare(
-    `SELECT u.id as user_id, u.name, u.username, u.email, o.id as org_id, o.slug as org_slug,
-            (SELECT role FROM user_orgs WHERE user_id=u.id AND org_id=o.id) as role
-       FROM sessions s
-       JOIN users u ON u.id=s.user_id
-       JOIN organizations o ON o.id=s.org_id
-      WHERE s.id=?1 AND s.expires_at>?2
-      LIMIT 1`
-  ).bind(sess, now).first();
-  if (!row) return { ok:false, status:401, body:{ error:"Unauthorized" } };
-  return { ok:true, org:{ id:row.org_id, slug:row.org_slug }, user:{ id:row.user_id, role:row.role } };
+// ---------- CORS / preflight ----------
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
 }
-function isManager(me){ return me.user.role === "Admin" || me.user.role === "Manager"; }
 
-function j(o,s=200){ return new Response(JSON.stringify(o),{status:s,headers:{"content-type":"application/json; charset=utf-8"}}); }
-function parseCookie(c){ const o={}; c.split(/;\s*/).forEach(kv=>{ const [k,...r]=kv.split("="); if(!k) return; o[k.trim()]=decodeURIComponent((r.join("=")||"").trim());}); return o; }
+// ---------- GET: list users in org (RAW ARRAY) ----------
+export async function onRequestGet(ctx) {
+  try {
+    const { env, request } = ctx;
+    ensureDB(env);
 
-async function hashPassword(password){
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), { name:"PBKDF2" }, false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name:"PBKDF2", hash:"SHA-256", salt, iterations: PBKDF2_ITERS }, key, 256);
-  const hashB64 = b64(new Uint8Array(bits));
-  const saltB64 = b64(salt);
-  return { hashB64, saltB64 };
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+
+    const org_id = getOrgId(auth);
+    if (!org_id) return json({ error: "missing org_id" }, 400);
+
+    const { results } = await env.DB.prepare(
+      `SELECT u.id, u.email, u.display_name,
+              COALESCE(oum.is_owner, 0) AS is_owner
+         FROM org_user_memberships oum
+         JOIN users u ON u.id = oum.user_id
+        WHERE oum.org_id = ?
+        ORDER BY lower(u.display_name), lower(u.email)`
+    ).bind(org_id).all();
+
+    // raw array so arr.map(...) works
+    return json(results ?? [], 200);
+  } catch (e) {
+    console.error("[users][GET] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
+  }
 }
-function b64(u8){ let s=""; for (let i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return btoa(s); }
-function genTemp(n){ const a="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"; let out=""; for(let i=0;i<n;i++) out+=a[Math.floor(Math.random()*a.length)]; return out; }
+
+// ---------- POST: create user + add to org + assign role ----------
+export async function onRequestPost(ctx) {
+  try {
+    const { env, request } = ctx;
+    ensureDB(env);
+
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+    if (!isAdmin(auth)) return json({ error: "forbidden" }, 403);
+
+    const org_id = getOrgId(auth);
+    if (!org_id) return json({ error: "missing org_id" }, 400);
+
+    const body = await request.json().catch(() => null);
+    const id = body?.id || crypto.randomUUID();
+    const email = body?.email?.trim()?.toLowerCase?.() || null;
+    const display_name = body?.display_name?.trim?.() || email || "New User";
+    const make_admin = !!body?.admin;
+    const group_ids = Array.isArray(body?.group_ids) ? body.group_ids : [];
+
+    // Ensure baseline roles and Admin->all permissions
+    const { adminRoleId, memberRoleId } = await ensureOrgBasics(env, org_id);
+
+    // Build atomic batch
+    const stmts = [
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO users (id, email, display_name, created_at, updated_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+      ).bind(id, email, display_name),
+
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO org_user_memberships (org_id, user_id, is_owner, created_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+      ).bind(org_id, id, make_admin ? 1 : 0),
+
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO user_roles (org_id, user_id, role_id, created_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+      ).bind(org_id, id, make_admin ? adminRoleId : memberRoleId),
+    ];
+
+    // Optional: put them into groups
+    for (const gid of group_ids) {
+      if (!gid) continue;
+      stmts.push(
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO user_groups (org_id, user_id, group_id, created_at)
+           VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+        ).bind(org_id, id, gid)
+      );
+    }
+
+    await env.DB.batch(stmts);
+
+    // Return the created user (org-scoped)
+    const { results } = await env.DB.prepare(
+      `SELECT u.id, u.email, u.display_name,
+              COALESCE(oum.is_owner, 0) AS is_owner
+         FROM users u
+         JOIN org_user_memberships oum
+           ON oum.user_id = u.id AND oum.org_id = ?
+        WHERE u.id = ?`
+    ).bind(org_id, id).all();
+
+    return json({ ok: true, user: results?.[0] ?? null }, 201);
+  } catch (e) {
+    console.error("[users][POST] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
+  }
+}
