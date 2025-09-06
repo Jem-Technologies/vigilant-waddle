@@ -114,10 +114,15 @@ export async function onRequestGet(ctx) {
       SELECT
         u.id,
         u.email,
-        COALESCE(u.display_name, u.name, u.email) AS name,
+        COALESCE(u.name, u.email) AS name,
         COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
         COALESCE(oum.is_owner,0) AS is_owner,
-        IFNULL((SELECT COUNT(*) FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE g.org_id = ? AND gm.user_id = u.id), 0) AS group_count,
+        IFNULL((
+          SELECT COUNT(*)
+          FROM group_members gm
+          JOIN groups g ON g.id = gm.group_id
+          WHERE g.org_id = ? AND gm.user_id = u.id
+        ), 0) AS group_count,
         IFNULL((
           SELECT COUNT(*)
           FROM role_permissions rp
@@ -133,11 +138,10 @@ export async function onRequestGet(ctx) {
       LEFT JOIN user_roles ur ON ur.org_id = oum.org_id AND ur.user_id = oum.user_id
       LEFT JOIN roles r ON r.id = ur.role_id
       WHERE oum.org_id = ?
-      ORDER BY lower(COALESCE(u.display_name, u.name, u.email)), lower(u.email)
+      ORDER BY lower(COALESCE(u.name, u.email)) ASC, lower(u.email) ASC
       `
     ).bind(org_id, org_id, org_id).all();
 
-    // raw array so arr.map(...) works
     return json(results ?? [], 200);
   } catch (e) {
     console.error("[users][GET] unhandled:", e);
@@ -161,8 +165,8 @@ export async function onRequestPost(ctx) {
     const body = await request.json().catch(() => null);
     const id = body?.id || crypto.randomUUID();
     const email = body?.email?.trim()?.toLowerCase?.() || null;
-    const display_name = body?.name?.trim?.() || body?.display_name?.trim?.() || email || "New User";
-    const roleName = (body?.role || '').trim() || 'Member';   // 'Admin' | 'Member' | 'Custom'
+    const name = body?.name?.trim?.() || body?.display_name?.trim?.() || email || "New User";
+    const roleName = (body?.role || '').trim() || 'Member';   // 'Admin' | 'Member' | 'Custom' | 'Owner'
     const group_ids = Array.isArray(body?.group_ids) ? body.group_ids : [];
     const permission_ids = Array.isArray(body?.permission_ids) ? body.permission_ids : [];
     const password = body?.password?.toString?.() || null;
@@ -170,9 +174,9 @@ export async function onRequestPost(ctx) {
     // Ensure baseline roles and Admin->all permissions
     const { adminRoleId, memberRoleId } = await ensureOrgBasics(env, org_id);
 
-    // Insert user (if not exists)
     const stmts = [];
 
+    // Password hashing if provided
     let pwd_hash = null, pwd_salt_b64 = null;
     if (password) {
       const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -181,25 +185,36 @@ export async function onRequestPost(ctx) {
       pwd_salt_b64 = b64(salt);
     }
 
+    // Insert user if not exists (NOTE: using 'name' column, not 'display_name')
     stmts.push(
       env.DB.prepare(
-        `INSERT OR IGNORE INTO users (id, email, display_name, pwd_hash, pwd_salt, created_at, updated_at)
+        `INSERT OR IGNORE INTO users (id, email, name, pwd_hash, pwd_salt, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-      ).bind(id, email, display_name, pwd_hash, pwd_salt_b64)
+      ).bind(id, email, name, pwd_hash, pwd_salt_b64)
+    );
 
-    // If user already exists and password provided, update credentials
+    // If user already exists: update credentials and/or name if provided
     if (password) {
       stmts.push(
         env.DB.prepare(
-          `UPDATE users SET pwd_hash = ?, pwd_salt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+          `UPDATE users
+             SET pwd_hash = ?, pwd_salt = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`
         ).bind(pwd_hash, pwd_salt_b64, id)
       );
     }
-
-    );
+    if (name) {
+      stmts.push(
+        env.DB.prepare(
+          `UPDATE users
+             SET name = COALESCE(?, name), updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`
+        ).bind(name, id)
+      );
+    }
 
     // Org membership
-    const make_owner = (roleName === 'Owner'); // rarely set from UI; kept for parity
+    const make_owner = (roleName === 'Owner');
     stmts.push(
       env.DB.prepare(
         `INSERT OR IGNORE INTO org_user_memberships (org_id, user_id, is_owner, created_at)
@@ -207,11 +222,12 @@ export async function onRequestPost(ctx) {
       ).bind(org_id, id, make_owner ? 1 : 0)
     );
 
-    // Role assignment:
-    let finalRoleId = (roleName === 'Admin') ? adminRoleId :
-                      (roleName === 'Member' || roleName === 'Owner') ? memberRoleId : null;
+    // Role assignment
+    let finalRoleId =
+      (roleName === 'Admin') ? adminRoleId :
+      (roleName === 'Member' || roleName === 'Owner') ? memberRoleId : null;
 
-    // If custom permissions provided OR roleName is 'Custom', create a per-user custom role
+    // Custom role (if explicitly Custom or explicit permission set provided)
     if (!finalRoleId && (roleName === 'Custom' || permission_ids.length > 0)) {
       const customRoleId = crypto.randomUUID();
       const customRoleName = `Custom:${id.slice(0,8)}`;
@@ -220,10 +236,9 @@ export async function onRequestPost(ctx) {
         env.DB.prepare(
           `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
            VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-        ).bind(customRoleId, org_id, customRoleName, `Custom role for ${display_name}`)
+        ).bind(customRoleId, org_id, customRoleName, `Custom role for ${name}`)
       );
 
-      // Set exact permissions on this role
       for (const pid of permission_ids) {
         if (!pid) continue;
         stmts.push(
@@ -260,15 +275,20 @@ export async function onRequestPost(ctx) {
 
     await env.DB.batch(stmts);
 
-    // Return created user (with counts)
+    // Return created/updated user (with counts)
     const { results } = await env.DB.prepare(
       `
       SELECT
         u.id,
         u.email,
-        COALESCE(u.display_name, u.name, u.email) AS name,
+        COALESCE(u.name, u.email) AS name,
         COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
-        IFNULL((SELECT COUNT(*) FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE g.org_id = ? AND gm.user_id = u.id), 0) AS group_count,
+        IFNULL((
+          SELECT COUNT(*)
+          FROM group_members gm
+          JOIN groups g ON g.id = gm.group_id
+          WHERE g.org_id = ? AND gm.user_id = u.id
+        ), 0) AS group_count,
         IFNULL((
           SELECT COUNT(*)
           FROM role_permissions rp
