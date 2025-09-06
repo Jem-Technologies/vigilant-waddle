@@ -424,16 +424,18 @@
     setTimeout(() => $('ufName')?.focus(), 0);
   }
 
-  // -------------------- modal: list viewer --------------------
-  function showListModal(title, items) {
-    const dlg = $('listModal');
-    if (!dlg) { alert(items.join('\n')); return; }
-    $('listModalTitle').textContent = title;
-    const ul = $('listModalList');
-    ul.innerHTML = items.length ? items.map(x => `<li>${escapeHtml(x)}</li>`).join('') : '<li class="muted">None</li>';
-    dlg.showModal?.();
-  }
+  // list modal open helper
+function showListModal(title, items) {
+  const dlg = document.getElementById('listModal');
+  if (!dlg) { alert(items.join('\n')); return; }
+  document.getElementById('listModalTitle').textContent = title;
+  const ul = document.getElementById('listModalList');
+  ul.innerHTML = items.length ? items.map(x => `<li>${escapeHtml(x)}</li>`).join('') : '<li class="muted">None</li>';
+  dlg.showModal?.();
+}
+document.getElementById('closeListModal')?.addEventListener('click', () => document.getElementById('listModal')?.close());
 
+// (removed duplicate event delegation for #usersTable tbody; handled in bindHandlers)
   // -------------------- wire up --------------------
   function bindHandlers() {
     // open Add User

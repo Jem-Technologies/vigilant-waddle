@@ -25,45 +25,169 @@
   }
 
   // ---- Users & Roles ----
-  async function renderUsersExtended(){
-    const table = document.getElementById("usersTable");
-    const summary = document.getElementById("usersSummary");
+  // Ensure org structures exist before we compute Admin=ALL
+  async function ensureOrgDataLoaded() {
+    if (!_groups.length || !_depts.length || !_perms.length) {
+      await Promise.all([loadGroups(), loadDepartments(), loadPermissions()]);
+    }
+  }
+
+  // Normalize any server/local user into a consistent shape
+  function normalizeFromDetails(u) {
+    if (!u || typeof u !== 'object') return null;
+    const id = u.id || u._id || u.uuid || u.user_id || u.userId;
+    if (!id) return null;
+
+    // details endpoint already gives rich objects
+    const departments = Array.isArray(u.departments) ? u.departments.map(d => ({ id:d.id ?? d.key ?? d.name, name:d.name ?? d.key ?? String(d.id) })) : [];
+    const groups      = Array.isArray(u.groups)      ? u.groups.map(g => ({ id:g.id ?? g.key ?? g.name, name:g.name ?? g.key ?? String(g.id), department_id:g.department_id ?? g.dept_id ?? null })) : [];
+    // permissions may come as strings or objects
+    const permissions = Array.isArray(u.permissions) ? u.permissions.map(p => (typeof p === 'string' ? { key:p, name:p } : { key:(p.key ?? p.id ?? p.name), name:(p.name ?? p.key ?? p.id) })) : [];
+
+    return {
+      id,
+      name: u.display_name || u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || '(no name)',
+      email: (u.email || u.username || '').toLowerCase(),
+      role: u.role || u.user_role || 'Member',
+      nickname: u.nickname || '',
+      avatar_url: u.avatar_url || '',
+      departments,
+      groups,
+      permissions
+    };
+  }
+
+  function normalizeFromLocal(u) {
+    if (!u || typeof u !== 'object') return null;
+    const id = u.id || u._id || u.uuid || u.user_id || u.userId;
+    if (!id) return null;
+
+    const isAdmin = (u.role || '').toLowerCase() === 'admin';
+    const group_ids = isAdmin ? allGroups().map(g => g.id) : (u.group_ids || u.groups || JSON.parse(u.group_ids_json || '[]'));
+    const dept_ids  = isAdmin ? allDepts().map(d => d.id)  : (u.dept_ids  || u.departments || JSON.parse(u.dept_ids_json  || '[]'));
+    let perm_keys   = isAdmin ? allPerms().map(p => p.key || p.id)
+                                : (u.perm_ids || u.perm_keys || u.privileges || JSON.parse(u.perms_json || '[]'));
+    perm_keys = (perm_keys || []).map(x => typeof x === 'string' ? x : (x?.key || x?.id || x?.name || '')).filter(Boolean);
+
+    // map ids/keys to labeled objects for uniform rendering
+    const departments = (dept_ids || []).map(did => ({ id: did, name: (_depts.find(d => String(d.id)===String(did)) || {}).name || String(did) }));
+    const groups      = (group_ids || []).map(gid => {
+      const g = _groups.find(x => String(x.id)===String(gid));
+      return { id: gid, name: g?.name || String(gid), department_id: g?.department_id || null };
+    });
+    const permissions = (perm_keys || []).map(k => {
+      const p = _perms.find(x => String(x.key || x.id) === String(k));
+      return { key: k, name: p?.name || k };
+    });
+
+    return {
+      id,
+      name: u.name || '(no name)',
+      email: (u.email || '').toLowerCase(),
+      role: u.role || 'Member',
+      nickname: '',
+      avatar_url: '',
+      departments,
+      groups,
+      permissions
+    };
+  }
+
+  async function renderUsersExtended() {
+    const table = document.getElementById('usersTable');
+    const summary = document.getElementById('usersSummary');
     if (!table) return;
 
-    let data = [];
+     await ensureOrgDataLoaded();
+
+    // Try rich details endpoint first
+    let detailed = [];
+    let usedDetailsAPI = true;
     try {
-      const r = await fetch("/api/admin/users.details", { credentials:"include" });
-      data = await r.json().catch(()=>[]);
-      if (!r.ok) throw new Error("users.details failed");
+      const r = await fetch('/api/admin/users.details', { credentials: 'include' });
+      const data = await r.json().catch(()=>[]);
+      if (!r.ok) throw new Error('users.details failed');
+      detailed = Array.isArray(data) ? data : (data.users || data.results || []);
     } catch (e) {
-      console.warn("users.details error:", e);
-      return;
+      console.warn('users.details error:', e);
+      usedDetailsAPI = false;
     }
 
-    const tbody = table.querySelector("tbody");
-    tbody.innerHTML = data.map(u => {
-      const deps = u.departments.map(d => `<span class="chip">${escapeHtml(d.name)}</span>`).join(" ");
-      const grps = u.groups.map(g => `<span class="chip">${escapeHtml(g.name)}</span>`).join(" ");
-      const perms = u.permissions.map(p => `<span class="chip quiet">${escapeHtml(p)}</span>`).join(" ");
-      const nick = u.nickname ? escapeHtml(u.nickname) : `<span class="muted">Not set</span>`;
-      const avatar = u.avatar_url ? `<img class="avatar sm" src="/cdn/${encodeURIComponent(u.avatar_url)}" alt="">` : `<span class="avatar sm initials">${initials(u.display_name || u.name)}</span>`;
-      return `
-        <tr data-user-id="${u.id}">
+    let users = [];
+    if (usedDetailsAPI && detailed.length) {
+      users = detailed.map(normalizeFromDetails).filter(Boolean);
+    } else {
+      // fallback to local DB (or your simpler /api/admin/users if available via your existing loadUsers logic)
+      let rawLocal = [];
+      try {
+        // If you have a simple list endpoint, prefer it:
+        const r = await fetch('/api/admin/users', { credentials: 'include' });
+        const data = await r.json().catch(()=>[]);
+        rawLocal = Array.isArray(data) ? data : (data.users || data.results || []);
+      } catch {
+        rawLocal = dbLoad().users;
+      }
+      users = (rawLocal || []).map(normalizeFromLocal).filter(Boolean);
+    }
+
+    // Build rows with counts + chevron and Edit/Delete actions
+    const tbody = table.querySelector('tbody');
+    const chev = '<span aria-hidden="true" style="margin-left:.25rem">▾</span>';
+
+    // keep an index for Edit/Delete/list handlers
+    usersIndex = new Map();
+    let html = '';
+    for (const u of users) {
+      usersIndex.set(u.id, u);
+
+      const permCount  = (u.permissions  || []).length;
+      const deptCount  = (u.departments  || []).length;
+      const groupCount = (u.groups       || []).length;
+
+      // OPTIONAL avatar (omit if you want name-only cell)
+      const avatar = u.avatar_url
+        ? `<img class="avatar sm" src="/cdn/${encodeURIComponent(u.avatar_url)}" alt="">`
+        : `<span class="avatar sm initials">${initials(u.name)}</span>`;
+
+      html += `
+        <tr data-id="${escapeHtml(u.id)}">
           <td style="white-space:nowrap">${avatar}</td>
           <td>
-            <div style="font-weight:600">${escapeHtml(u.name)}</div>
-            <div class="muted" style="font-size:.85em">${escapeHtml(u.email)}</div>
+            <div style="font-weight:600">${escapeHtml(u.name || '')}</div>
+            <div class="muted" style="font-size:.85em">${escapeHtml(u.email || '')}</div>
           </td>
-          <td>${escapeHtml(u.role)}</td>
-          <td>${deps || "—"}</td>
-          <td>${grps || "—"}</td>
-          <td>${nick}</td>
-          <td style="max-width:360px">${perms || "—"}</td>
+          <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
+
+          <td class="num">
+            <button class="btn sm count-btn" data-list="depts" data-id="${escapeHtml(u.id)}" title="View departments">
+              <span class="pill">${deptCount}</span> ${chev}
+            </button>
+          </td>
+
+          <td class="num">
+            <button class="btn sm count-btn" data-list="groups" data-id="${escapeHtml(u.id)}" title="View groups">
+              <span class="pill">${groupCount}</span> ${chev}
+            </button>
+          </td>
+
+          <td class="num" style="max-width:360px">
+            <button class="btn sm count-btn" data-list="perms" data-id="${escapeHtml(u.id)}" title="View permissions">
+              <span class="pill">${permCount}</span> ${chev}
+            </button>
+          </td>
+
+          <td class="actions">
+            <button class="btn sm" data-act="edit" data-id="${escapeHtml(u.id)}">Edit</button>
+            <button class="btn sm danger" data-act="delete" data-id="${escapeHtml(u.id)}">Delete</button>
+          </td>
         </tr>
       `;
-    }).join("");
+    }
 
-    summary.textContent = `${data.length} user${data.length===1?"":"s"} in ${window.currentOrg?.name || "org"}`;
+    tbody.innerHTML = html;
+    if (summary) {
+      summary.textContent = `${users.length} user${users.length !== 1 ? 's' : ''} total`;
+    }
   }
 
   // --- Admin Chat & Conversations Manager (departments + groups) ---
