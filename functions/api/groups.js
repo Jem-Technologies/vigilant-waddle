@@ -15,12 +15,18 @@ function getOrgId(auth) {
     null
   );
 }
+
 // escape % and _ for LIKE; we use ESCAPE '\'
 function likeQuery(q) {
-  return `%${q.replace(/[%_]/g, s => "\\" + s)}%`;
+  return `%${q.replace(/[%_]/g, (s) => "\\" + s)}%`;
 }
+
 function ensureDB(env) {
-  if (!env?.DB) throw new Error("D1 binding env.DB is missing. Add it in wrangler.toml and your Pages/Worker bindings.");
+  if (!env?.DB) {
+    throw new Error(
+      "D1 binding env.DB is missing. Add it in wrangler.toml and your Pages/Worker bindings."
+    );
+  }
 }
 
 // ---- CORS / preflight ----
@@ -54,19 +60,23 @@ export async function onRequestGet(ctx) {
 
     let stmt;
     if (q) {
-      stmt = env.DB.prepare(
-        `SELECT id, name, org_id, created_at
-           FROM groups
-          WHERE org_id = ? AND name LIKE ? ESCAPE '\\'
-          ORDER BY ${order}`
-      ).bind(org_id, likeQuery(q));
+      stmt = env.DB
+        .prepare(
+          `SELECT id, name, org_id, created_at
+             FROM groups
+            WHERE org_id = ? AND name LIKE ? ESCAPE '\\'
+            ORDER BY ${order}`
+        )
+        .bind(org_id, likeQuery(q));
     } else {
-      stmt = env.DB.prepare(
-        `SELECT id, name, org_id, created_at
-           FROM groups
-          WHERE org_id = ?
-          ORDER BY ${order}`
-      ).bind(org_id);
+      stmt = env.DB
+        .prepare(
+          `SELECT id, name, org_id, created_at
+             FROM groups
+            WHERE org_id = ?
+            ORDER BY ${order}`
+        )
+        .bind(org_id);
     }
 
     const { results } = await stmt.all();
@@ -77,7 +87,7 @@ export async function onRequestGet(ctx) {
   }
 }
 
-// ---- POST: create group (admin) ----
+// ---- POST: create group (admin) + best-effort chat thread creation ----
 export async function onRequestPost(ctx) {
   try {
     const { env, request } = ctx;
@@ -95,23 +105,55 @@ export async function onRequestPost(ctx) {
     if (!name) return json({ error: "name is required" }, 400);
 
     const id = crypto.randomUUID();
-    await env.DB.prepare(
-      `INSERT INTO groups (id, org_id, name, created_at, updated_at)
-       VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-    ).bind(id, org_id, name).run();
+    await env.DB
+      .prepare(
+        `INSERT INTO groups (id, org_id, name, created_at, updated_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+      )
+      .bind(id, org_id, name)
+      .run();
 
-    const { results } = await env.DB.prepare(
-      `SELECT id, name, org_id, created_at FROM groups WHERE id = ?`
-    ).bind(id).all();
+    // --- Best-effort: create a default chat thread for this group ---
+    // If your DB doesn't have a 'threads' table, this silently no-ops.
+    let chat_thread_id = null;
+    try {
+      chat_thread_id = crypto.randomUUID();
+      await env.DB
+        .prepare(
+          `INSERT INTO threads (id, org_id, title, group_id, created_by, created_at)
+           VALUES (?, ?, ?, ?, ?, unixepoch())`
+        )
+        .bind(
+          chat_thread_id,
+          org_id,
+          `Group: ${name}`,
+          id,
+          auth?.user?.id || null
+        )
+        .run();
+    } catch (err) {
+      // Ignore if threads table/check constraint doesn't exist; keep groups create success.
+      console.warn("[groups][POST] thread create skipped:", err?.message || err);
+      chat_thread_id = null;
+    }
 
-    return json({ ok: true, group: results?.[0] ?? null }, 201);
+    const { results } = await env.DB
+      .prepare(`SELECT id, name, org_id, created_at FROM groups WHERE id = ?`)
+      .bind(id)
+      .all();
+
+    // Include chat_thread_id so the dashboard can push it into the Chats panel
+    return json(
+      { ok: true, group: results?.[0] ?? null, chat_thread_id },
+      201
+    );
   } catch (e) {
     console.error("[groups][POST] unhandled:", e);
     return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
 }
 
-// ---- PUT: update group (admin) ----
+// ---- PUT: update group (admin) + best-effort thread title sync ----
 export async function onRequestPut(ctx) {
   try {
     const { env, request } = ctx;
@@ -130,17 +172,35 @@ export async function onRequestPut(ctx) {
     if (!id) return json({ error: "id is required" }, 400);
     if (!name) return json({ error: "name is required" }, 400);
 
-    const { meta } = await env.DB.prepare(
-      `UPDATE groups
-          SET name = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND org_id = ?`
-    ).bind(name, id, org_id).run();
+    const { meta } = await env.DB
+      .prepare(
+        `UPDATE groups
+            SET name = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND org_id = ?`
+      )
+      .bind(name, id, org_id)
+      .run();
 
     if (!meta || meta.changes === 0) return json({ error: "not found" }, 404);
 
-    const { results } = await env.DB.prepare(
-      `SELECT id, name, org_id, created_at FROM groups WHERE id = ?`
-    ).bind(id).all();
+    // --- Best-effort: keep related group thread title in sync ---
+    try {
+      await env.DB
+        .prepare(
+          `UPDATE threads
+              SET title = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE group_id = ? AND org_id = ?`
+        )
+        .bind(`Group: ${name}`, id, org_id)
+        .run();
+    } catch (err) {
+      console.warn("[groups][PUT] thread title sync skipped:", err?.message || err);
+    }
+
+    const { results } = await env.DB
+      .prepare(`SELECT id, name, org_id, created_at FROM groups WHERE id = ?`)
+      .bind(id)
+      .all();
 
     return json({ ok: true, group: results?.[0] ?? null }, 200);
   } catch (e) {
@@ -163,12 +223,18 @@ export async function onRequestDelete(ctx) {
     if (!org_id) return json({ error: "missing org_id" }, 400);
 
     const url = new URL(request.url);
-    const id = url.searchParams.get("id") || (await request.clone().json().catch(() => null))?.id;
+    const id =
+      url.searchParams.get("id") ||
+      (await request.clone().json().catch(() => null))?.id;
     if (!id) return json({ error: "id is required" }, 400);
 
-    const { meta } = await env.DB.prepare(
-      `DELETE FROM groups WHERE id = ? AND org_id = ?`
-    ).bind(id, org_id).run();
+    const { meta } = await env.DB
+      .prepare(`DELETE FROM groups WHERE id = ? AND org_id = ?`)
+      .bind(id, org_id)
+      .run();
+
+    // NOTE: We intentionally do NOT delete related threads here to avoid breaking existing chats.
+    // If you want to archive them, handle it in a separate maintenance task.
 
     return json({ ok: true, deleted: meta?.changes ?? 0 }, 200);
   } catch (e) {
