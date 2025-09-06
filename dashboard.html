@@ -562,17 +562,17 @@
         </section>
 
         <!-- ADMIN -->
-<section data-route="/admin" class="route" aria-labelledby="usersTitle">
-  <div class="grid-2">
-    <div class="card" id="adminUsersCard">
-      <header class="panel-header">
-        <h2 id="usersTitle">Users &amp; Roles</h2>
-        <span class="muted" id="usersSummary" aria-live="polite"></span>
-      </header>
+            <section data-route="/admin" class="route" aria-labelledby="usersTitle">
+        <div class="grid-2">
+          <div class="card" id="adminUsersCard" style="align-items: flex-start; text-align: left;">
+            <header class="panel-header">
+              <h2 id="usersTitle">Users &amp; Roles</h2>
+              <span class="muted" id="usersSummary" aria-live="polite"></span>
+            </header>
 
-      <!-- Users table -->
-      <div class="table-wrap">
-        <table class="table" id="usersTable">
+            <!-- Users table -->
+            <div class="table-wrap">
+              <table class="table" id="usersTable">
           <thead>
             <tr>
               <th>Name</th>
@@ -585,102 +585,146 @@
             </tr>
           </thead>
           <tbody></tbody>
-        </table>
-        <div id="emptyState" class="muted" style="display:none;margin:10px 0">No users yet</div>
-      </div>
+              </table>
+              <div id="emptyState" class="muted" style="display:none;margin:10px 0;">No users yet</div>
+            </div>
 
-      <div class="btn-row" style="margin-top:8px">
-        <button class="btn" id="btnAddUser" type="button">Add User</button>
-      </div>
+            <div class="btn-row" style="margin-top:8px;justify-content: flex-start;">
+              <button class="btn primary" onclick="openAddUserModal()" id="btnAddUser" type="button">Add User</button>
+            </div>
 
-      <!-- User form (hidden until “Add User”) -->
-      <form id="userForm" hidden novalidate>
-        <div class="form-row">
-          <label>Name
+            <!-- ===== Base Modal (Add User) ===== -->
+            <div id="userModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+              <div class="modal-backdrop" data-close="userModal"></div>
+              <div class="modal-dialog" role="document" aria-labelledby="userModalTitle">
+          <header class="modal-header">
+            <h3 id="userModalTitle">Add User</h3>
+            <button type="button" class="icon-btn close" title="Close" data-close="userModal">✕</button>
+          </header>
+          <div class="modal-body">
+            <!-- User form (hidden until “Add User”) -->
+            <form id="userForm" novalidate>
+              <div class="form-row">
+                <label>Name
             <input type="text" id="ufName" required autocomplete="name" />
-          </label>
-          <label>Email
+                </label>
+                <label>Email
             <input type="email" id="ufEmail" required autocomplete="email" />
-          </label>
-        </div>
+                </label>
+              </div>
 
-        <div class="form-row">
-          <label>Role
+              <div class="form-row">
+                <label>Role
             <select id="ufRole">
               <option value="Member">Member</option>
               <option value="Manager">Manager</option>
               <option value="Admin">Admin</option>
               <option value="Custom">Custom</option>
             </select>
-          </label>
+                </label>
 
-          <label class="form-inline">Temp Password
+                <label class="form-inline">Temp Password
             <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated" />
             <button type="button" class="btn sm" id="btnGenPass">Generate</button>
-          </label>
-        </div>
+                </label>
+              </div>
 
-        <!-- Groups multi-select -->
-        <fieldset>
-          <legend class="panel-sub">Groups</legend>
-          <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
-            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
-              <span class="label">Select groups</span>
-              <span class="count pill"><span>0</span> selected</span>
+              <!-- Groups selector trigger -->
+              <fieldset>
+                <legend class="panel-sub">Groups</legend>
+                <div class="ms" style="max-width:640px">
+            <button type="button" class="btn ghost w-100" id="btnPickGroups" data-open="groupsModal" style="justify-content:space-between;">
+              <span id="groupsLabel">Select groups</span>
+              <span class="count pill"><span id="groupsCount">0</span> selected</span>
             </button>
-            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
-          </div>
-        </fieldset>
+                </div>
+              </fieldset>
 
-        <!-- Permissions multi-select -->
-        <fieldset class="priv-checks" id="privChecks">
-          <legend class="panel-sub">Permissions</legend>
-          <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
-            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
-              <span class="label">Select permissions</span>
-              <span class="count pill"><span>0</span> selected</span>
+              <!-- Permissions selector trigger -->
+              <fieldset class="priv-checks" id="privChecks">
+                <legend class="panel-sub">Permissions</legend>
+                <div class="ms" style="max-width:640px">
+            <button type="button" class="btn ghost w-100" id="btnPickPerms" data-open="permsModal" style="justify-content:space-between;">
+              <span id="permsLabel">Select permissions</span>
+              <span class="count pill"><span id="permsCount">0</span> selected</span>
             </button>
-            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
-          </div>
-          <p class="muted" style="margin-top:6px">
+                </div>
+                <p class="muted" style="margin-top:6px;">
             If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
-          </p>
-        </fieldset>
+                </p>
+              </fieldset>
 
-        <div class="btn-row">
-          <!-- IMPORTANT: admin-users.js listens for #createBtn -->
-          <button class="btn primary" id="createBtn" type="button">Save</button>
+              <!-- Hidden fields to carry chosen IDs -->
+              <input type="hidden" id="hfGroupIds" value="[]">
+              <input type="hidden" id="hfPermIds" value="[]">
 
-          <!-- Legacy cancel button is already supported by admin-users.js -->
-          <button class="btn" type="button" id="btnCancelUser">Cancel</button>
+              <div class="btn-row" style="justify-content: flex-start;">
+                <button class="btn primary" id="createBtn" type="button">Save</button>
+                <button class="btn" type="button" id="btnCancelUser" data-close="userModal">Cancel</button>
+                <button id="btnSaveUser" type="button" hidden></button>
+              </div>
 
-          <!-- (Optional) Provide a hidden proxy so other code looking for #btnSaveUser can forward to #createBtn -->
-          <button id="btnSaveUser" type="button" hidden></button>
-        </div>
-
-        <!-- Quick create group/department (IDs chosen to avoid collisions with the
-             separate admin card that dashboard.auth.js injects) -->
-        <div class="form-row" style="margin-top:12px">
-          <label>New Group
+              <!-- Quick create group/department -->
+              <div class="form-row" style="margin-top:12px">
+                <label>New Group
             <div class="form-inline" style="gap:8px">
               <input type="text" id="newGroupName" placeholder="e.g., QA Team" />
               <button class="btn sm" type="button" id="createGroupBtn">Add</button>
             </div>
-          </label>
-          <label>New Department
+                </label>
+                <label>New Department
             <div class="form-inline" style="gap:8px">
               <input type="text" id="newDeptName" placeholder="e.g., Support" />
               <button class="btn sm" type="button" id="createDeptBtn">Add</button>
             </div>
-          </label>
-        </div>
-      </form>
-    </div>
-  </div>
+                </label>
+              </div>
+            </form>
+          </div>
+              </div>
+            </div>
 
-  <!-- Toast region used by admin-users.js -->
-  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
-</section>
+            <!-- ===== Small Modal: Groups ===== -->
+            <div id="groupsModal" class="modal sm" aria-hidden="true" role="dialog" aria-modal="true">
+              <div class="modal-backdrop" data-close="groupsModal"></div>
+              <div class="modal-dialog" role="document" aria-labelledby="groupsModalTitle">
+          <header class="modal-header">
+            <h3 id="groupsModalTitle">Select Groups</h3>
+            <button type="button" class="icon-btn close" title="Close" data-close="groupsModal">✕</button>
+          </header>
+          <div class="modal-body">
+            <div id="groupsList" class="list"></div>
+          </div>
+          <footer class="modal-footer" style="justify-content: flex-start;">
+            <button class="btn" type="button" data-close="groupsModal">Cancel</button>
+            <button class="btn primary" type="button" id="saveGroupsBtn">Use Selected</button>
+          </footer>
+              </div>
+            </div>
+
+            <!-- ===== Small Modal: Permissions ===== -->
+            <div id="permsModal" class="modal sm" aria-hidden="true" role="dialog" aria-modal="true">
+              <div class="modal-backdrop" data-close="permsModal"></div>
+              <div class="modal-dialog" role="document" aria-labelledby="permsModalTitle">
+          <header class="modal-header">
+            <h3 id="permsModalTitle">Select Permissions</h3>
+            <button type="button" class="icon-btn close" title="Close" data-close="permsModal">✕</button>
+          </header>
+          <div class="modal-body">
+            <div id="permsList" class="list"></div>
+          </div>
+          <footer class="modal-footer" style="justify-content: flex-start;">
+            <button class="btn" type="button" data-close="permsModal">Cancel</button>
+            <button class="btn primary" type="button" id="savePermsBtn">Use Selected</button>
+          </footer>
+              </div>
+            </div>
+
+            <!-- Toast region used by admin-users.js -->
+            <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+          </div>
+        </div>
+            </section>
 
         <!-- CLIENT PORTAL (read-only illustration) -->
         <section data-route="/client-portal" class="route">

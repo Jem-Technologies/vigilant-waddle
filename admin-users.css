@@ -54,3 +54,27 @@
   border-radius:999px;
   font-size:12px;
 }
+
+
+/* === Modal base === */
+.modal { position: fixed; inset: 0; display: none; z-index: 1000; }
+.modal[aria-hidden="false"] { display: block; }
+.modal .modal-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,.5);
+}
+.modal .modal-dialog {
+  position: relative; margin: 5vh auto; max-width: 760px; width: 92%;
+  background: #111; color: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.45);
+}
+.modal.sm .modal-dialog { max-width: 520px; }
+.modal .modal-header, .modal .modal-footer { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.modal .modal-footer { border-top: 1px solid rgba(255,255,255,.06); border-bottom: none; display: flex; gap: 8px; justify-content: flex-end; }
+.modal .modal-body { padding: 16px; max-height: 70vh; overflow: auto; }
+.icon-btn.close { background: transparent; border: 0; font-size: 18px; color: #bbb; cursor: pointer; }
+.icon-btn.close:hover { color: #fff; }
+.btn.w-100 { width: 100%; }
+
+.list { display: grid; gap: 8px; }
+.list .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; }
+.list .row label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.list small { color: #aaa; }

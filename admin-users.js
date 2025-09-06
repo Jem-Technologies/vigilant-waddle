@@ -31,9 +31,39 @@ async function fetchJSON(url, opts = {}) {
 const toastEl = $('toast');
 function toast(msg){ if(!toastEl){ alert(msg); return; } toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 2200); }
 
-// ---------- multi-select factory ----------
+// ---------- modal utils ----------
+function openModal(id) {
+  const el = $(id);
+  if (!el) return;
+  el.setAttribute('aria-hidden', 'false');
+  // focus first focusable
+  setTimeout(() => {
+    const f = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    f?.focus();
+  }, 0);
+}
+function closeModal(id) {
+  const el = $(id);
+  if (!el) return;
+  el.setAttribute('aria-hidden', 'true');
+}
+// generic open/close via data attributes
+document.addEventListener('click', (e) => {
+  const openId = e.target?.dataset?.open;
+  const closeId = e.target?.dataset?.close;
+  if (openId) openModal(openId);
+  if (closeId) closeModal(closeId);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal[aria-hidden="false"]').forEach(m => m.setAttribute('aria-hidden', 'true'));
+  }
+});
+
+// ---------- multi-select factory (legacy dropdown support) ----------
 function buildMultiSelect(rootEl, items, { onChange } = {}) {
   const menu = rootEl.querySelector('.ms-menu');
+  if (!menu) return null;
   menu.innerHTML = '';
   const state = new Set();
 
@@ -43,10 +73,10 @@ function buildMultiSelect(rootEl, items, { onChange } = {}) {
     row.setAttribute('role','option');
     row.dataset.id = String(it.id);
     row.innerHTML = `
-      <input type="checkbox" aria-label="${it.label}">
+      <input type="checkbox" aria-label="${escapeHtml(it.label)}">
       <div>
-        <div>${it.label}</div>
-        ${it.sublabel ? `<div class="muted">${it.sublabel}</div>` : ''}
+        <div>${escapeHtml(it.label)}</div>
+        ${it.sublabel ? `<div class="muted">${escapeHtml(it.sublabel)}</div>` : ''}
       </div>`;
     row.addEventListener('click', () => {
       const cb = row.querySelector('input[type="checkbox"]');
@@ -67,7 +97,6 @@ function buildMultiSelect(rootEl, items, { onChange } = {}) {
     if (e.target.closest('.ms-trigger')) {
       const open = rootEl.getAttribute('aria-expanded') === 'true';
       rootEl.setAttribute('aria-expanded', open ? 'false' : 'true');
-      // make it robust even if CSS is missing:
       const menu = rootEl.querySelector('.ms-menu');
       if (menu) menu.hidden = open;
     }
@@ -93,23 +122,96 @@ function buildMultiSelect(rootEl, items, { onChange } = {}) {
   };
 }
 
-// ---------- populate dropdowns & table ----------
-let groupsMS, permsMS;
+// ---------- state ----------
+let groupsMS = null, permsMS = null; // legacy dropdowns (if present)
+const state = {
+  groups: [],        // from API
+  permissions: [],   // from API
+  selectedGroupIds: new Set(),
+  selectedPermIds: new Set(),
+};
 
+// hidden inputs for modal-selected ids (exist in modal HTML)
+const hfGroupIds = $('hfGroupIds');
+const hfPermIds  = $('hfPermIds');
+
+// small modal lists (if present)
+const groupsListEl = $('groupsList');
+const permsListEl  = $('permsList');
+const groupsCountEl = $('groupsCount');
+const permsCountEl  = $('permsCount');
+
+// ---------- load data ----------
 async function loadGroups(){
-  const { groups=[] } = await fetchJSON(api('/api/groups'));
-  const items = groups.map(g => ({ id: g.id, label: g.name }));
+  // Accept either {groups:[...]} or plain array
+  const data = await fetchJSON(api('/api/groups'));
+  const groups = Array.isArray(data) ? data : (data.groups || data.results || []);
+  state.groups = Array.isArray(groups) ? groups : [];
+  // legacy dropdown support
   const root = firstId('ufGroupsMS','groupsMS');
-  if (root) groupsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
+  if (root) {
+    const items = state.groups.map(g => ({ id: g.id, label: g.name }));
+    groupsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
+  }
+  // small modal rendering if element exists
+  if (groupsListEl) renderGroupsList();
 }
 
 async function loadPermissions(){
-  const { permissions=[] } = await fetchJSON(api('/api/permissions'));
-  const items = permissions.map(p => ({ id: p.id, label: p.key, sublabel: p.description }));
+  // Accept either {permissions:[...]} or plain array
+  const data = await fetchJSON(api('/api/permissions'));
+  const perms = Array.isArray(data) ? data : (data.permissions || data.results || []);
+  state.permissions = Array.isArray(perms) ? perms : [];
+  // legacy dropdown support
   const root = firstId('ufPermsMS','permsMS');
-  if (root) permsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
+  if (root) {
+    const items = state.permissions.map(p => ({ id: p.id, label: p.key || p.name || p.id, sublabel: p.description }));
+    permsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
+  }
+  // small modal rendering if element exists
+  if (permsListEl) renderPermsList();
 }
 
+// ---------- renderers for small modals ----------
+function renderGroupsList() {
+  if (!groupsListEl) return;
+  const sel = state.selectedGroupIds;
+  groupsListEl.innerHTML = '';
+  state.groups.forEach(g => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const id = `g_${g.id}`;
+    row.innerHTML = `
+      <label for="${id}">
+        <input type="checkbox" id="${id}" value="${g.id}" ${sel.has(g.id) ? 'checked' : ''}>
+        <span>${escapeHtml(g.name || 'Untitled Group')}</span>
+      </label>
+      ${g.department_name ? `<small>Dept: ${escapeHtml(g.department_name)}</small>` : ''}
+    `;
+    groupsListEl.appendChild(row);
+  });
+}
+function renderPermsList() {
+  if (!permsListEl) return;
+  const sel = state.selectedPermIds;
+  permsListEl.innerHTML = '';
+  state.permissions.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const id = `p_${p.id}`;
+    const title = p.key || p.name || p.id;
+    row.innerHTML = `
+      <label for="${id}">
+        <input type="checkbox" id="${id}" value="${p.id}" ${sel.has(p.id) ? 'checked' : ''}>
+        <span>${escapeHtml(title)}</span>
+      </label>
+      ${p.description ? `<small>${escapeHtml(p.description)}</small>` : ''}
+    `;
+    permsListEl.appendChild(row);
+  });
+}
+
+// ---------- users table ----------
 async function loadUsers(){
   const tbody = qq('#usersTable tbody');
   if (!tbody) return;
@@ -122,7 +224,7 @@ async function loadUsers(){
 
   if (!users.length) {
     const empty = $('emptyState') || $('usersSummary');
-    if (empty) empty.style.display = 'block', (empty.textContent = 'No users yet');
+    if (empty) { empty.style.display = 'block'; empty.textContent = 'No users yet'; }
     return;
   }
   const maybeHide = $('emptyState');
@@ -138,7 +240,7 @@ async function loadUsers(){
         <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
         <td><span class="pill" title="Groups">${Number(u.group_count||0)}</span></td>
         <td><span class="pill" title="Permissions">${Number(u.perm_count||0)}</span></td>
-        <td><button class="btn ${qq('.table')?.classList.contains('ghost')?'ghost':'sm'}" data-act="reset-pwd" data-id="${u.id}">Reset</button></td>
+        <td><button class="btn sm" data-act="reset-pwd" data-id="${u.id}">Reset</button></td>
         <td>
           <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
           <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
@@ -170,13 +272,29 @@ async function createUser(){
   const email = emailEl?.value.trim().toLowerCase();
   const password = passwordEl?.value || '';
   const role = roleEl?.value || 'Member';
-  const group_ids = groupsMS?.getSelected() || [];
-  const permission_ids = permsMS?.getSelected() || [];
 
   if (!email) { toast('Email is required'); return; }
   if (!name) { toast('Name is required'); return; }
 
-  const payload = { name, display_name: name, email, role, group_ids, permission_ids };
+  // Prefer modal selections (hidden inputs). If not present, fall back to legacy dropdowns.
+  let group_ids = [];
+  let permission_ids = [];
+  if (hfGroupIds && hfPermIds) {
+    try { group_ids = JSON.parse(hfGroupIds.value || '[]'); } catch {}
+    try { permission_ids = JSON.parse(hfPermIds.value || '[]'); } catch {}
+  } else {
+    group_ids = groupsMS?.getSelected() || [];
+    permission_ids = permsMS?.getSelected() || [];
+  }
+
+  const payload = {
+    name,
+    email,
+    role,
+    group_ids,
+    // only pass permission_ids if role is Custom (to avoid creating a custom role unintentionally)
+    permission_ids: (role === 'Custom') ? permission_ids : []
+  };
   if (password) payload.password = password;
 
   await fetchJSON(api('/api/admin/users'), {
@@ -187,6 +305,8 @@ async function createUser(){
 
   toast('User created');
   resetForm();
+  // close base modal if present
+  if ($('userModal')) closeModal('userModal');
   await loadUsers();
 }
 
@@ -199,8 +319,12 @@ function resetForm(){
   if (emailEl) emailEl.value = '';
   if (passwordEl) passwordEl.value = '';
   if (roleEl) roleEl.value = 'Member';
-  groupsMS?.setSelected([]);
-  permsMS?.setSelected([]);
+  groupsMS?.setSelected?.([]);
+  permsMS?.setSelected?.([]);
+  if (hfGroupIds) hfGroupIds.value = '[]';
+  if (hfPermIds)  hfPermIds.value  = '[]';
+  if (groupsCountEl) groupsCountEl.textContent = '0';
+  if (permsCountEl)  permsCountEl.textContent  = '0';
 }
 
 // ---------- create group / department & push to Chats ----------
@@ -215,7 +339,7 @@ async function createGroup(){
   });
   input.value = '';
   toast('Group created');
-  await loadGroups(); // refresh dropdown
+  await loadGroups(); // refresh lists
   window.dispatchEvent(new CustomEvent('org-structure-updated', { detail:{ type:'group', id: res?.group?.id, thread: res?.chat_thread_id }}));
 }
 
@@ -247,30 +371,43 @@ firstId('resetFormBtn')?.addEventListener('click', resetForm);
 firstId('createGroupBtn')?.addEventListener('click', createGroup);
 firstId('createDeptBtn')?.addEventListener('click', createDepartment);
 
-// Support your legacy "open form" and "cancel" buttons too:
+// Legacy “open form” button (shows inline form) — now opens modal if present
 $('btnAddUser')?.addEventListener('click', async ()=>{
-  const form = $('userForm');
-  if (form) form.hidden = false;
+  if ($('userModal')) {
+    // reset + open modal
+    resetForm();
+    openModal('userModal');
+  } else {
+    // fallback to inline form visibility
+    const form = $('userForm');
+    if (form) form.hidden = false;
+  }
   await Promise.all([loadGroups(), loadPermissions()]);
 });
+
+// Cancel hides modal or inline form
 $('btnCancelUser')?.addEventListener('click', ()=>{
   resetForm();
+  if ($('userModal')) closeModal('userModal');
   const form = $('userForm');
   if (form) form.hidden = true;
 });
 
+// Generate password (supports either id)
 firstId('genPwdBtn','btnGenPass')?.addEventListener('click', ()=>{
   const el = firstId('password','ufPassword');
   if (!el) return;
   el.value = randomPassword();
 });
+
+// Toggle password visibility if you have a toggle button
 firstId('togglePwdBtn')?.addEventListener('click', ()=>{
   const f = firstId('password','ufPassword');
   if (!f) return;
   f.type = (f.type === 'password') ? 'text' : 'password';
 });
 
-// Table action handlers (stubs for now)
+// Table action handlers
 qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
   const btn = e.target.closest('button[data-act]');
   if (!btn) return;
@@ -293,6 +430,43 @@ qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
   }
 });
 
+// Small modals: opening hooks populate current selections
+$('btnPickGroups')?.addEventListener('click', async () => {
+  // hydrate from hidden input (modal flow)
+  if (hfGroupIds) {
+    try { state.selectedGroupIds = new Set(JSON.parse(hfGroupIds.value || '[]')); } catch { state.selectedGroupIds = new Set(); }
+  }
+  if (!state.groups.length) await loadGroups();
+  else renderGroupsList();
+  openModal('groupsModal');
+});
+$('btnPickPerms')?.addEventListener('click', async () => {
+  if (hfPermIds) {
+    try { state.selectedPermIds = new Set(JSON.parse(hfPermIds.value || '[]')); } catch { state.selectedPermIds = new Set(); }
+  }
+  if (!state.permissions.length) await loadPermissions();
+  else renderPermsList();
+  openModal('permsModal');
+});
+
+// Save selections from small modals
+$('saveGroupsBtn')?.addEventListener('click', () => {
+  if (!groupsListEl) return closeModal('groupsModal');
+  const chosen = [...groupsListEl.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+  state.selectedGroupIds = new Set(chosen);
+  if (hfGroupIds) hfGroupIds.value = JSON.stringify(chosen);
+  if (groupsCountEl) groupsCountEl.textContent = String(chosen.length);
+  closeModal('groupsModal');
+});
+$('savePermsBtn')?.addEventListener('click', () => {
+  if (!permsListEl) return closeModal('permsModal');
+  const chosen = [...permsListEl.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+  state.selectedPermIds = new Set(chosen);
+  if (hfPermIds) hfPermIds.value = JSON.stringify(chosen);
+  if (permsCountEl) permsCountEl.textContent = String(chosen.length);
+  closeModal('permsModal');
+});
+
 // Chats panel can listen for updates:
 // window.addEventListener('org-structure-updated', (e)=> ChatPanel.reload());
 
@@ -306,3 +480,12 @@ qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
     toast('Failed to load admin data');
   }
 })();
+
+// ---------- Public API to open Add User modal with optional prefill ----------
+window.openAddUserModal = function(prefill = {}) {
+  resetForm();
+  if (prefill.name)  $('ufName')?.value  = prefill.name;
+  if (prefill.email) $('ufEmail')?.value = prefill.email;
+  if (prefill.role)  $('ufRole')?.value  = prefill.role;
+  if ($('userModal')) openModal('userModal');
+};
