@@ -637,13 +637,13 @@
         <!-- Groups multi-select (inline dropdown style) -->
         <fieldset>
           <legend class="panel-sub">Groups</legend>
-          <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
-            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
+          <details class="ms" id="ufGroupsMS">
+            <summary class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
               <span class="label">Select groups</span>
               <span class="count pill"><span>0</span> selected</span>
-            </button>
+            </summary>
             <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
-          </div>
+          </details>
         </fieldset>
 
         <!-- Permissions multi-select (inline dropdown style) -->
