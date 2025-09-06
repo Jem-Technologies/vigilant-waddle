@@ -316,38 +316,45 @@
   function randomPassword(len=12) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*?';
     let out = '';
-    for (let i=0;i<len;i++) out += chars[Math.floor(Math.random() * chars.length)];
+    for (let i=0; i<len; i++) out += chars[Math.floor(Math.random() * chars.length)];
     return out;
   }
 
   async function createOrUpdateUser() {
     const nameEl = $('ufName');
     const emailEl = $('ufEmail');
-    const pwdEl = $('ufPassword');
-    const roleEl = $('ufRole');
-    const name = (nameEl?.value || '').trim();
-    const email = (emailEl?.value || '').trim().toLowerCase();
-    const password = pwdEl?.value || '';
-    const role = roleEl?.value || 'Member';
+    const pwdEl   = $('ufPassword');
+    const roleEl  = $('ufRole');
 
-    if (!name) { toast('Name is required'); return; }
+    const name  = (nameEl?.value || '').trim();
+    const email = (emailEl?.value || '').trim().toLowerCase();
+    const role  = (roleEl?.value || 'Member').trim();
+    const password = pwdEl?.value || '';
+
+    if (!name)  { toast('Name is required'); return; }
     if (!email) { toast('Email is required'); return; }
 
-    let perm_ids = permsMS?.getSelected() || [];
+    let perm_ids  = permsMS?.getSelected()  || [];
     let group_ids = groupsMS?.getSelected() || [];
-    let dept_ids = deptsMS?.getSelected() || [];
+    let dept_ids  = deptsMS?.getSelected()  || [];
 
-    // Admin gets everything automatically
+    // Admin gets EVERYTHING, every time.
     if (role.toLowerCase() === 'admin') {
-      perm_ids = allPerms().map(p => p.key || p.id);
-      group_ids = allGroups().map(g => g.id);
-      dept_ids = allDepts().map(d => d.id);
+      perm_ids  = (_perms  || []).map(p => p.key || p.id);
+      group_ids = (_groups || []).map(g => g.id);
+      dept_ids  = (_depts  || []).map(d => d.id);
     }
 
     const frm = $('userForm');
     const editingId = (frm?.dataset?.editing || '').trim();
 
-    const payload = { id: editingId || undefined, name, email, role, perm_ids, group_ids, dept_ids };
+    const payload = {
+      id: editingId || undefined,
+      name, email, role,
+      perm_ids: Array.isArray(perm_ids) ? perm_ids : [],
+      group_ids: Array.isArray(group_ids) ? group_ids : [],
+      dept_ids: Array.isArray(dept_ids) ? dept_ids : []
+    };
     if (password) payload.password = password;
 
     let ok = true;
@@ -357,18 +364,20 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload)
       });
-    } catch (e) {
+    } catch {
       ok = false;
     }
 
     if (!ok) {
-      // local fallback
+      // Local fallback: NEVER push a user without an id
       const db = dbLoad();
       if (editingId) {
-        const i = db.users.findIndex(x => x.id === editingId);
+        const i = (db.users || []).findIndex(x => x.id === editingId);
         if (i >= 0) db.users[i] = { ...db.users[i], ...payload };
       } else {
-        db.users.push({ id: uid(), ...payload });
+        const newId = uid();
+        db.users = Array.isArray(db.users) ? db.users : [];
+        db.users.push({ id: newId, ...payload, id: newId });
       }
       dbSave(db);
     }
@@ -376,7 +385,7 @@
     toast(editingId ? 'User updated' : 'User created');
     $('addUserModal')?.close();
     resetForm();
-    await loadUsers();
+    await renderUsersExtended(); // re-render using the extended renderer
   }
 
   async function deleteUser(id) {
