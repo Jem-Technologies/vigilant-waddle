@@ -1,5 +1,5 @@
 // functions/api/permissions.js
-import { getAuthed, json } from "../../_lib/auth.js";
+import { getAuthed, json } from "../_lib/auth.js";
 
 export async function onRequestGet({ env, request }) {
   const auth = await getAuthed(env, request);
