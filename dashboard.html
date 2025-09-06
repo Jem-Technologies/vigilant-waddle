@@ -599,84 +599,82 @@
           </div>
         </section>
 
-        <!-- 2) Add User Modal (main) -->
-        <section aria-hidden="true">
-        <div id="userModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
-          <div class="modal-backdrop" onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')"></div>
-          <div class="modal-dialog" role="document" aria-labelledby="userModalTitle">
-            <header class="modal-header">
-              <h3 id="userModalTitle">Add User</h3>
-              <button type="button" class="icon-btn close" title="Close"
-          onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')">✕</button>
-            </header>
+        <!-- 2) Add User Modal (main) — uses native <dialog> for proper a11y & focus -->
+<dialog id="addUserModal" class="modal" aria-labelledby="userModalTitle">
+  <form method="dialog" class="modal-dialog" role="document" aria-labelledby="userModalTitle" novalidate>
+    <header class="modal-header">
+      <h3 id="userModalTitle">Add User</h3>
+      <button type="submit" class="icon-btn close" title="Close" value="close">✕</button>
+    </header>
 
-            <div class="modal-body">
-              <!-- Keep these IDs — admin-users.js depends on them -->
-              <form id="userForm" novalidate>
-          <div class="form-row">
-            <label>Name
-              <input type="text" id="ufName" required autocomplete="name" />
-            </label>
-            <label>Email
-              <input type="email" id="ufEmail" required autocomplete="email" />
-            </label>
-          </div>
-
-          <div class="form-row">
-            <label>Role
-              <select id="ufRole">
-                <option value="Member">Member</option>
-                <option value="Manager">Manager</option>
-                <option value="Admin">Admin</option>
-                <option value="Custom">Custom</option>
-              </select>
-            </label>
-
-            <label class="form-inline">Temp Password
-              <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated" />
-              <button type="button" class="btn sm" id="btnGenPass">Generate</button>
-            </label>
-          </div>
-
-          <!-- Groups multi-select (inline dropdown style) -->
-          <fieldset>
-            <legend class="panel-sub">Groups</legend>
-            <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
-              <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
-                <span class="label">Select groups</span>
-                <span class="count pill"><span>0</span> selected</span>
-              </button>
-              <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
-            </div>
-          </fieldset>
-
-          <!-- Permissions multi-select (inline dropdown style) -->
-          <fieldset class="priv-checks" id="privChecks">
-            <legend class="panel-sub">Permissions</legend>
-            <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
-              <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
-                <span class="label">Select permissions</span>
-                <span class="count pill"><span>0</span> selected</span>
-              </button>
-              <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
-            </div>
-            <p class="muted" style="margin-top:6px">
-              If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
-            </p>
-          </fieldset>
-
-          <div class="btn-row">
-            <!-- IMPORTANT: admin-users.js listens for #createBtn -->
-            <button class="btn dark" id="createBtn" type="button">Save</button>
-
-            <!-- Cancel closes modal and is also handled by admin-users.js -->
-            <button class="btn" type="button" id="btnCancelUser"
-              onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')">Cancel</button>
-          </div>
-              </form>
-            </div>
-          </div>
+    <div class="modal-body">
+      <!-- Keep these IDs — admin-users.js depends on them -->
+      <form id="userForm" novalidate>
+        <div class="form-row">
+          <label>Name
+            <input type="text" id="ufName" required autocomplete="name" />
+          </label>
+          <label>Email
+            <input type="email" id="ufEmail" required autocomplete="email" />
+          </label>
         </div>
+
+        <div class="form-row">
+          <label>Role
+            <select id="ufRole">
+              <option value="Member">Member</option>
+              <option value="Manager">Manager</option>
+              <option value="Admin">Admin</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </label>
+
+          <label class="form-inline">Temp Password
+            <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated" />
+            <button type="button" class="btn sm" id="btnGenPass">Generate</button>
+          </label>
+        </div>
+
+        <!-- Groups multi-select (inline dropdown style) -->
+        <fieldset>
+          <legend class="panel-sub">Groups</legend>
+          <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
+            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
+              <span class="label">Select groups</span>
+              <span class="count pill"><span>0</span> selected</span>
+            </button>
+            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
+          </div>
+        </fieldset>
+
+        <!-- Permissions multi-select (inline dropdown style) -->
+        <fieldset class="priv-checks" id="privChecks">
+          <legend class="panel-sub">Permissions</legend>
+          <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
+            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
+              <span class="label">Select permissions</span>
+              <span class="count pill"><span>0</span> selected</span>
+            </button>
+            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
+          </div>
+          <p class="muted" style="margin-top:6px">
+            If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
+          </p>
+        </fieldset>
+
+        <div class="btn-row">
+          <!-- IMPORTANT: admin-users.js listens for #createBtn -->
+          <button class="btn dark" id="createBtn" type="button">Save</button>
+          <button class="btn" type="submit" value="close" id="btnCancelUser">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn" type="submit" value="close">Close</button>
+    </footer>
+  </form>
+</dialog>
 
         <!-- Toast region used by admin-users.js -->
          <div id="toast" role="status" aria-live="polite" aria-atomic="true" style="position:fixed;right:16px;bottom:16px;z-index:9999;display:none"></div>
