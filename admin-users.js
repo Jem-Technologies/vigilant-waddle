@@ -185,6 +185,8 @@ async function createUser(){
     body: JSON.stringify(payload)
   });
 
+  document.getElementById('addUserModal')?.close();
+
   toast('User created');
   resetForm();
   await loadUsers();
@@ -248,15 +250,18 @@ firstId('createGroupBtn')?.addEventListener('click', createGroup);
 firstId('createDeptBtn')?.addEventListener('click', createDepartment);
 
 // Support your legacy "open form" and "cancel" buttons too:
+const addUserDlg = document.getElementById('addUserModal');
+
 $('btnAddUser')?.addEventListener('click', async ()=>{
-  const form = $('userForm');
-  if (form) form.hidden = false;
   await Promise.all([loadGroups(), loadPermissions()]);
+  addUserDlg?.showModal?.();
+  setTimeout(()=> $('ufName')?.focus(), 0);
 });
+
 $('btnCancelUser')?.addEventListener('click', ()=>{
   resetForm();
-  const form = $('userForm');
-  if (form) form.hidden = true;
+  const addUserDlg = document.getElementById('addUserModal');
+  addUserDlg?.close?.();
 });
 
 firstId('genPwdBtn','btnGenPass')?.addEventListener('click', ()=>{

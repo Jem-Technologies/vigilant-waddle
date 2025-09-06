@@ -590,8 +590,7 @@
               </div>
 
               <div class="btn-row" style="margin-top:8px;justify-content: flex-start;">
-               <button class="btn dark" id="btnAddUser"
-                       onclick="document.getElementById('addUserModal').showModal()">
+               <button class="btn dark" id="btnAddUser">
                 Add User (Admin)
               </button>
               </div>
@@ -609,7 +608,7 @@
 
     <div class="modal-body">
       <!-- Keep these IDs — admin-users.js depends on them -->
-      <form id="userForm" novalidate>
+      <div id="userForm" novalidate>
         <div class="form-row">
           <label>Name
             <input type="text" id="ufName" required autocomplete="name" />
@@ -667,7 +666,7 @@
           <button class="btn dark" id="createBtn" type="button">Save</button>
           <button class="btn" type="submit" value="close" id="btnCancelUser">Cancel</button>
         </div>
-      </form>
+      </div>
     </div>
 
     <footer class="modal-footer">
