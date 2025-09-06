@@ -24,166 +24,47 @@
     console.warn("dashboard.auth init failed:", e);
   }
 
-  function safeArr(v) { return Array.isArray(v) ? v : []; }
-function normPerm(p) {
-  if (typeof p === 'string') return { key: p, name: p };
-  if (p && typeof p === 'object') return { key: p.key || p.id || p.name || '', name: p.name || p.key || p.id || '' };
-  return { key: '', name: '' };
-}
-function normGroup(g) {
-  if (!g || typeof g !== 'object') return { id: '', name: '' };
-  return { id: g.id ?? g.key ?? g.name ?? '', name: g.name ?? g.key ?? String(g.id ?? '') };
-}
-function normDept(d) {
-  if (!d || typeof d !== 'object') return { id: '', name: '' };
-  return { id: d.id ?? d.key ?? d.name ?? '', name: d.name ?? d.key ?? String(d.id ?? '') };
-}
+  // ---- Users & Roles ----
+  async function renderUsersExtended(){
+    const table = document.getElementById("usersTable");
+    const summary = document.getElementById("usersSummary");
+    if (!table) return;
 
-async function renderUsersExtended() {
-  const table = document.getElementById('usersTable');
-  const summary = document.getElementById('usersSummary');
-  if (!table) return;
-
-  // Make sure org lists are ready so Admin can expand to ALL
-  if (!_groups?.length || !_depts?.length || !_perms?.length) {
-    await Promise.all([loadGroups(), loadDepartments(), loadPermissions()]);
-  }
-
-  // Try details API first
-  let raw = [];
-  let usedDetails = true;
-  try {
-    const r = await fetch('/api/admin/users.details', { credentials: 'include' });
-    const data = await r.json().catch(() => []);
-    if (!r.ok) throw new Error('users.details failed');
-    raw = Array.isArray(data) ? data : (data.users || data.results || []);
-  } catch {
-    usedDetails = false;
-  }
-  if (!usedDetails) {
+    let data = [];
     try {
-      const r = await fetch('/api/admin/users', { credentials: 'include' });
-      const data = await r.json().catch(() => []);
-      raw = Array.isArray(data) ? data : (data.users || data.results || []);
-    } catch {
-      raw = dbLoad().users || [];
-    }
-  }}
-
-  // Normalize per user; if anything is missing, skip that row instead of crashing everything
-  const users = [];
-  for (const u of safeArr(raw)) {
-    try {
-    const id = u?.id || u?._id || u?.uuid || u?.user_id || u?.userId;
-    if (!id) continue; // skip malformed user
-
-    const role = (u.role || u.user_role || 'Member');
-    let departments = usedDetails
-      ? safeArr(u.departments).map(normDept)
-      : safeArr(u.dept_ids).map(did => ({
-        id: did,
-        name: (_depts.find(d => String(d.id) === String(did))?.name || String(did))
-      }));
-    let groups = usedDetails
-      ? safeArr(u.groups).map(normGroup)
-      : safeArr(u.group_ids).map(gid => ({
-        id: gid,
-        name: (_groups.find(g => String(g.id) === String(gid))?.name || String(gid))
-      }));
-    let permissions = usedDetails
-      ? safeArr(u.permissions).map(normPerm)
-      : safeArr(u.perm_ids || u.perm_keys || u.privileges).map(normPerm);
-
-    // Admin = ALL current org items
-    if ((role || '').toLowerCase() === 'admin') {
-      departments = (_depts  || []).map(d => ({ id: d.id, name: d.name }));
-      groups      = (_groups || []).map(g => ({ id: g.id, name: g.name }));
-      permissions = (_perms  || []).map(p => ({ key: (p.key || p.id), name: (p.name || p.key || p.id) }));
-    }
-
-    users.push({
-      id,
-      name: u.display_name || u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || '(no name)',
-      email: (u.email || u.username || '').toLowerCase(),
-      role,
-      departments,
-      groups,
-      permissions
-    });
-    } catch (err) {
-    console.error('[users.render] row skipped:', err);
-    }
-  }
-
-  // If somehow empty, (re)seed a local Admin so the table never blanks out
-  if (!users.length) {
-    const db = dbLoad();
-    if (!db.users?.length) {
-    db.users = [{
-      id: uid(),
-      name: 'Admin User',
-      email: 'admin@example.com',
-      role: 'Admin',
-      group_ids: [],
-      dept_ids: [],
-      perm_ids: []
-    }];
-    dbSave(db);
-    }
-    // re-run once with the local seed
-    try {
-    const local = dbLoad().users || [];
-    raw = local;
-    return await renderUsersExtended(); // safe recursion
+      const r = await fetch("/api/admin/users.details", { credentials:"include" });
+      data = await r.json().catch(()=>[]);
+      if (!r.ok) throw new Error("users.details failed");
     } catch (e) {
-    console.error('[users.render] fallback failed:', e);
+      console.warn("users.details error:", e);
+      return;
     }
+
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = data.map(u => {
+      const deps = Array.isArray(u.departments) ? u.departments.map(d => `<span class="chip">${escapeHtml(d.name)}</span>`).join(" ") : "";
+      const grps = Array.isArray(u.groups) ? u.groups.map(g => `<span class="chip">${escapeHtml(g.name)}</span>`).join(" ") : "";
+      const perms = u.permissions.map(p => `<span class="chip quiet">${escapeHtml(p)}</span>`).join(" ");
+      const nick = u.nickname ? escapeHtml(u.nickname) : `<span class="muted">Not set</span>`;
+      const avatar = u.avatar_url ? `<img class="avatar sm" src="/cdn/${encodeURIComponent(u.avatar_url)}" alt="">` : `<span class="avatar sm initials">${initials(u.display_name || u.name)}</span>`;
+      return `
+        <tr data-user-id="${u.id}">
+          <td style="white-space:nowrap">${avatar}</td>
+          <td>
+            <div style="font-weight:600">${escapeHtml(u.name)}</div>
+            <div class="muted" style="font-size:.85em">${escapeHtml(u.email)}</div>
+          </td>
+          <td>${escapeHtml(u.role)}</td>
+          <td>${deps || "—"}</td>
+          <td>${grps || "—"}</td>
+          <td>${nick}</td>
+          <td style="max-width:360px">${perms || "—"}</td>
+        </tr>
+      `;
+    }).join("");
+
+    summary.textContent = `${data.length} user${data.length===1?"":"s"} in ${window.currentOrg?.name || "org"}`;
   }
-
-  // Build rows (chevrons are plain text so no icon lib required)
-  const chev = '<span class="chev" aria-hidden="true">▾</span>';
-  const tbody = table.querySelector('tbody');
-  const html = users.map(u => {
-    const permCount  = u.permissions.length;
-    const deptCount  = u.departments.length;
-    const groupCount = u.groups.length;
-    return `
-    <tr data-id="${escapeHtml(u.id)}">
-      <td>
-      <div style="font-weight:600">${escapeHtml(u.name || '')}</div>
-      <div class="muted" style="font-size:.85em">${escapeHtml(u.email || '')}</div>
-      </td>
-      <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
-
-      <td class="num">
-      <button class="btn sm count-btn" data-list="perms" data-id="${escapeHtml(u.id)}" title="View permissions">
-        <span class="pill">${permCount}</span> ${chev}
-      </button>
-      </td>
-
-      <td class="num">
-      <button class="btn sm count-btn" data-list="depts" data-id="${escapeHtml(u.id)}" title="View departments">
-        <span class="pill">${deptCount}</span> ${chev}
-      </button>
-      </td>
-
-      <td class="num">
-      <button class="btn sm count-btn" data-list="groups" data-id="${escapeHtml(u.id)}" title="View groups">
-        <span class="pill">${groupCount}</span> ${chev}
-      </button>
-      </td>
-
-      <td class="actions">
-      <button class="btn sm" data-act="edit" data-id="${escapeHtml(u.id)}">Edit</button>
-      <button class="btn sm danger" data-act="delete" data-id="${escapeHtml(u.id)}">Delete</button>
-      </td>
-    </tr>
-    `;
-  }).join('');
-
-  tbody.innerHTML = html;
-  if (summary) summary.textContent = `${users.length} user${users.length !== 1 ? 's' : ''} total`;
-
 
   // --- Admin Chat & Conversations Manager (departments + groups) ---
   function installChatConversationsAdminCard() {
