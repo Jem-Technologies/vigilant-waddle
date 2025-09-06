@@ -43,107 +43,63 @@ function buildMultiSelect(rootEl, items, { onChange } = {}) {
   const trigger = rootEl.querySelector('.ms-trigger');
   const countEl = rootEl.querySelector('.count span');
 
-  // reset
   menu.innerHTML = '';
-  rootEl.setAttribute('aria-expanded', 'false');
-  menu.hidden = true;
+  rootEl.setAttribute('aria-expanded','false'); menu.hidden = true;
 
-  // build rows
   for (const it of items) {
     const row = document.createElement('div');
-    row.className = 'opt';
-    row.setAttribute('role','option');
-    row.dataset.id = String(it.id);
-
+    row.className = 'opt'; row.setAttribute('role','option'); row.dataset.id = String(it.id);
     const cid = `${rootEl.id}_${it.id}`;
     row.innerHTML = `
       <label for="${cid}" class="opt-row" style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input id="${cid}" type="checkbox" value="${escapeHtml(String(it.id))}">
+        <input id="${cid}" type="checkbox" value="${String(it.id)}">
         <div>
           <div>${escapeHtml(it.label || String(it.id))}</div>
           ${it.sublabel ? `<div class="muted" style="font-size:12px">${escapeHtml(it.sublabel)}</div>` : ''}
         </div>
       </label>`;
-
     const cb = row.querySelector('input[type="checkbox"]');
-
-    // checkbox toggling (single source of truth)
-    cb.addEventListener('change', ()=>{
-      updateCount();
-      onChange?.();
-    });
-
-    // clicking row toggles checkbox unless you clicked the checkbox itself
-    row.addEventListener('click', (e)=>{
-      if (e.target.closest('input')) return;
-      cb.checked = !cb.checked;
-      cb.dispatchEvent(new Event('change', { bubbles:false }));
-    });
-
+    cb.addEventListener('change', ()=>{ updateCount(); onChange?.(); });
+    row.addEventListener('click', (e)=>{ if (!e.target.closest('input')) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }});
     menu.appendChild(row);
   }
 
-  // toggle open/close
-  const toggle = (open) => {
-    rootEl.setAttribute('aria-expanded', open ? 'true' : 'false');
-    menu.hidden = !open;
-    if (open) menu.querySelector('input[type="checkbox"]')?.focus({ preventScroll:true });
-    else trigger?.focus({ preventScroll:true });
-  };
+  const toggle = (open) => { rootEl.setAttribute('aria-expanded', open?'true':'false'); menu.hidden = !open; };
+  trigger?.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(rootEl.getAttribute('aria-expanded')!=='true'); });
+  document.addEventListener('click', (e)=>{ if (!rootEl.contains(e.target)) toggle(false); });
+  trigger?.addEventListener('keydown', (e)=>{ if (['Enter',' ','ArrowDown'].includes(e.key)){ e.preventDefault(); toggle(true); menu.querySelector('input')?.focus(); }});
 
-  trigger?.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    const open = rootEl.getAttribute('aria-expanded') === 'true';
-    toggle(!open);
-  });
+  function updateCount(){ const n = menu.querySelectorAll('input:checked').length; if (countEl) countEl.textContent = String(n); }
 
-  // close on outside click
-  document.addEventListener('click', (e)=>{
-    if (!rootEl.contains(e.target)) toggle(false);
-  });
-
-  // keyboard on trigger
-  trigger?.addEventListener('keydown', (e)=>{
-    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault(); toggle(true);
-    }
-  });
-
-  function updateCount(){
-    const n = menu.querySelectorAll('input[type="checkbox"]:checked').length;
-    if (countEl) countEl.textContent = String(n);
-  }
-
-  // API for the widget
   return {
-    getSelected: () => Array.from(menu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
+    getSelected: () => Array.from(menu.querySelectorAll('input:checked')).map(cb => cb.value),
     setSelected: (ids=[]) => {
       const want = new Set(ids.map(String));
       menu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = want.has(cb.value));
       updateCount();
-    },
-    refresh: (newItems) => buildMultiSelect(rootEl, newItems, { onChange })
+    }
   };
 }
 
-// ---------- populate dropdowns & table ----------
+// Load and mount
 let groupsMS, permsMS;
 
 async function loadGroups(){
-  const data = await fetchJSON(api('/api/groups'));
-  const arr  = Array.isArray(data) ? data : (data.groups || data.results || []);
-  const items = arr.map(g => ({ id: g.id, label: g.name, sublabel: g.department_name ? `Dept: ${g.department_name}` : '' }));
-  const root = firstId('ufGroupsMS','groupsMS');
+  const data = await fetchJSON('/api/groups');
+  const list = Array.isArray(data) ? data : (data.groups || data.results || []);
+  const items = list.map(g => ({ id: g.id, label: g.name, sublabel: g.department_name ? `Dept: ${g.department_name}` : '' }));
+  const root = document.getElementById('ufGroupsMS');
   if (root) groupsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
 }
 
 async function loadPermissions(){
-  const data = await fetchJSON(api('/api/permissions'));
-  const arr  = Array.isArray(data) ? data : (data.permissions || data.results || []);
-  const items = arr.map(p => ({ id: p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
-  const root = firstId('ufPermsMS','permsMS');
+  const data = await fetchJSON('/api/permissions');
+  const list = Array.isArray(data) ? data : (data.permissions || data.results || []);
+  const items = list.map(p => ({ id: p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
+  const root = document.getElementById('ufPermsMS');
   if (root) permsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
 }
+
 
 async function loadRoles(){
   const sel = document.getElementById('ufRole');
