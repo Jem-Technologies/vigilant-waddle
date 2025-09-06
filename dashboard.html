@@ -562,128 +562,120 @@
         </section>
 
         <!-- ADMIN -->
-      <section data-route="/admin" class="route" aria-labelledby="usersTitle">
-        <div class="grid-2">
-          <div class="card" id="adminUsersCard" style="align-items: flex-start;">
-            <header class="panel-header" style="text-align: left;">
-        <h2 id="usersTitle">Users &amp; Roles</h2>
-        <span class="muted" id="usersSummary" aria-live="polite"></span>
+        <section data-route="/admin" class="route" aria-labelledby="usersTitle">
+          <div class="grid-2">
+            <div class="card" id="adminUsersCard" style="align-items: flex-start;">
+              <header class="panel-header" style="text-align: left;">
+          <h2 id="usersTitle">Users &amp; Roles</h2>
+          <span class="muted" id="usersSummary" aria-live="polite"></span>
+              </header>
+
+              <!-- Users table -->
+              <div class="table-wrap" style="text-align: left;">
+          <table class="table" id="usersTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Groups</th>
+                <th>Permissions</th>
+                <th>Password</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="emptyState" class="muted" style="display:none;margin:10px 0;text-align:left;">No users yet</div>
+              </div>
+
+              <div class="btn-row" style="margin-top:8px;justify-content: flex-start;">
+          <button class="btn dark" id="btnAddUser"
+            onclick="document.getElementById('userModal').setAttribute('aria-hidden','false')">
+            Add User (Admin)
+          </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2) Add User Modal (main) -->
+        <div id="userModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+          <div class="modal-backdrop" onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')"></div>
+          <div class="modal-dialog" role="document" aria-labelledby="userModalTitle">
+            <header class="modal-header">
+              <h3 id="userModalTitle">Add User</h3>
+              <button type="button" class="icon-btn close" title="Close"
+          onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')">✕</button>
             </header>
 
-            <!-- Users table -->
-            <div class="table-wrap" style="text-align: left;">
-        <table class="table" id="usersTable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Groups</th>
-              <th>Permissions</th>
-              <th>Password</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="emptyState" class="muted" style="display:none;margin:10px 0;text-align:left;">No users yet</div>
-            </div>
-
-            <div class="btn-row" style="margin-top:8px;justify-content: flex-start;">
-        <button class="btn" id="btnAddUser" type="button">Add User</button>
-            </div>
-
-      <!-- ===== Base Modal (Add User) ===== -->
-      <div id="userModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
-        <div class="modal-backdrop" data-close="userModal"></div>
-        <div class="modal-dialog" role="document" aria-labelledby="userModalTitle">
-          <header class="modal-header" style="text-align: left;">
-            <h3 id="userModalTitle">Add User</h3>
-            <button type="button" class="icon-btn close" title="Close" data-close="userModal">✕</button>
-          </header>
-          <div class="modal-body" style="text-align: left;">
-            <!-- User form (hidden until “Add User”) -->
-            <form id="userForm" novalidate>
-        <div class="form-row">
-          <label>Name
-            <input type="text" id="ufName" required autocomplete="name" />
-          </label>
-          <label>Email
-            <input type="email" id="ufEmail" required autocomplete="email" />
-          </label>
-        </div>
-
-        <div class="form-row">
-          <label>Role
-            <select id="ufRole">
-              <option value="Member">Member</option>
-              <option value="Manager">Manager</option>
-              <option value="Admin">Admin</option>
-              <option value="Custom">Custom</option>
-            </select>
-          </label>
-
-          <label class="form-inline">Temp Password
-            <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated" />
-            <button type="button" class="btn sm" id="btnGenPass">Generate</button>
-          </label>
-        </div>
-
-        <!-- Groups selector trigger -->
-        <fieldset>
-          <legend class="panel-sub">Groups</legend>
-          <div class="ms" style="max-width:640px">
-            <button type="button" class="btn ghost w-100" id="btnPickGroups" data-open="groupsModal" style="justify-content:space-between">
-              <span id="groupsLabel">Select groups</span>
-              <span class="count pill"><span id="groupsCount">0</span> selected</span>
-            </button>
+            <div class="modal-body">
+              <!-- Keep these IDs — admin-users.js depends on them -->
+              <form id="userForm" novalidate>
+          <div class="form-row">
+            <label>Name
+              <input type="text" id="ufName" required autocomplete="name" />
+            </label>
+            <label>Email
+              <input type="email" id="ufEmail" required autocomplete="email" />
+            </label>
           </div>
-        </fieldset>
 
-        <!-- Permissions selector trigger -->
-        <fieldset class="priv-checks" id="privChecks">
-          <legend class="panel-sub">Permissions</legend>
-          <div class="ms" style="max-width:640px">
-            <button type="button" class="btn ghost w-100" id="btnPickPerms" data-open="permsModal" style="justify-content:space-between">
-              <span id="permsLabel">Select permissions</span>
-              <span class="count pill"><span id="permsCount">0</span> selected</span>
-            </button>
+          <div class="form-row">
+            <label>Role
+              <select id="ufRole">
+                <option value="Member">Member</option>
+                <option value="Manager">Manager</option>
+                <option value="Admin">Admin</option>
+                <option value="Custom">Custom</option>
+              </select>
+            </label>
+
+            <label class="form-inline">Temp Password
+              <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated" />
+              <button type="button" class="btn sm" id="btnGenPass">Generate</button>
+            </label>
           </div>
-          <p class="muted" style="margin-top:6px">
-            If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
-          </p>
-        </fieldset>
 
-        <!-- Hidden fields to carry chosen IDs -->
-        <input type="hidden" id="hfGroupIds" value="[]">
-        <input type="hidden" id="hfPermIds" value="[]">
-
-        <div class="btn-row">
-          <button class="btn primary" id="createBtn" type="button">Save</button>
-          <button class="btn" type="button" id="btnCancelUser" data-close="userModal">Cancel</button>
-          <button id="btnSaveUser" type="button" hidden></button>
-        </div>
-
-        <!-- Quick create group/department -->
-        <div class="form-row" style="margin-top:12px">
-          <label>New Group
-            <div class="form-inline" style="gap:8px">
-              <input type="text" id="newGroupName" placeholder="e.g., QA Team" />
-              <button class="btn sm" type="button" id="createGroupBtn">Add</button>
+          <!-- Groups multi-select (inline dropdown style) -->
+          <fieldset>
+            <legend class="panel-sub">Groups</legend>
+            <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
+              <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
+                <span class="label">Select groups</span>
+                <span class="count pill"><span>0</span> selected</span>
+              </button>
+              <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
             </div>
-          </label>
-          <label>New Department
-            <div class="form-inline" style="gap:8px">
-              <input type="text" id="newDeptName" placeholder="e.g., Support" />
-              <button class="btn sm" type="button" id="createDeptBtn">Add</button>
-            </div>
-          </label>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+          </fieldset>
 
+          <!-- Permissions multi-select (inline dropdown style) -->
+          <fieldset class="priv-checks" id="privChecks">
+            <legend class="panel-sub">Permissions</legend>
+            <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
+              <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
+                <span class="label">Select permissions</span>
+                <span class="count pill"><span>0</span> selected</span>
+              </button>
+              <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
+            </div>
+            <p class="muted" style="margin-top:6px">
+              If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
+            </p>
+          </fieldset>
+
+          <div class="btn-row">
+            <!-- IMPORTANT: admin-users.js listens for #createBtn -->
+            <button class="btn dark" id="createBtn" type="button">Save</button>
+
+            <!-- Cancel closes modal and is also handled by admin-users.js -->
+            <button class="btn" type="button" id="btnCancelUser"
+              onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')">Cancel</button>
+          </div>
+              </form>
+            </div>
+          </div>
+        </div>
 <!-- ===== Small Modal: Groups ===== -->
 <div id="groupsModal" class="modal sm" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-backdrop" data-close="groupsModal"></div>
