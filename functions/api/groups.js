@@ -102,6 +102,7 @@ export async function onRequestPost(ctx) {
 
     const body = await request.json().catch(() => null);
     const name = body?.name?.trim?.();
+    const department_id = body?.department_id || null;
     if (!name) return json({ error: "name is required" }, 400);
 
     const id = crypto.randomUUID();
@@ -112,6 +113,16 @@ export async function onRequestPost(ctx) {
       )
       .bind(id, org_id, name)
       .run();
+    // Add creator as a member so they can see its threads
+    try {
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO group_members (group_id, user_id, created_at)
+         VALUES (?, ?, CURRENT_TIMESTAMP)`
+      ).bind(id, auth.userId || auth?.user?.id || null).run();
+    } catch (e) {
+      console.warn("[groups][POST] membership insert skipped:", e?.message || e);
+    }
+
 
     // --- Best-effort: create a default chat thread for this group ---
     // If your DB doesn't have a 'threads' table, this silently no-ops.
@@ -120,8 +131,8 @@ export async function onRequestPost(ctx) {
       chat_thread_id = crypto.randomUUID();
       await env.DB
         .prepare(
-          `INSERT INTO threads (id, org_id, title, group_id, created_by, created_at)
-           VALUES (?, ?, ?, ?, ?, unixepoch())`
+          `INSERT INTO threads (id, org_id, title, department_id, group_id, created_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, unixepoch())`
         )
         .bind(
           chat_thread_id,
@@ -169,6 +180,7 @@ export async function onRequestPut(ctx) {
     const body = await request.json().catch(() => null);
     const id = body?.id;
     const name = body?.name?.trim?.();
+    const department_id = body?.department_id || null;
     if (!id) return json({ error: "id is required" }, 400);
     if (!name) return json({ error: "name is required" }, 400);
 

@@ -112,6 +112,16 @@ export async function onRequestPost(ctx) {
       )
       .bind(id, org_id, name)
       .run();
+    // Add creator as a member so they can see department threads
+    try {
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO department_members (department_id, user_id, created_at)
+         VALUES (?, ?, CURRENT_TIMESTAMP)`
+      ).bind(id, auth.userId || auth?.user?.id || null).run();
+    } catch (e) {
+      console.warn("[departments][POST] membership insert skipped:", e?.message || e);
+    }
+
 
     // --- Best-effort: create a default department chat thread ---
     // If 'threads' doesn't exist or constraint differs, we ignore the error.

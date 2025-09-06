@@ -117,7 +117,7 @@ export async function onRequestGet(ctx) {
         COALESCE(u.display_name, u.name, u.email) AS name,
         COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
         COALESCE(oum.is_owner,0) AS is_owner,
-        IFNULL((SELECT COUNT(*) FROM user_groups ug WHERE ug.org_id = ? AND ug.user_id = u.id), 0) AS group_count,
+        IFNULL((SELECT COUNT(*) FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE g.org_id = ? AND gm.user_id = u.id), 0) AS group_count,
         IFNULL((
           SELECT COUNT(*)
           FROM role_permissions rp
@@ -186,6 +186,16 @@ export async function onRequestPost(ctx) {
         `INSERT OR IGNORE INTO users (id, email, display_name, pwd_hash, pwd_salt, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
       ).bind(id, email, display_name, pwd_hash, pwd_salt_b64)
+
+    // If user already exists and password provided, update credentials
+    if (password) {
+      stmts.push(
+        env.DB.prepare(
+          `UPDATE users SET pwd_hash = ?, pwd_salt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+        ).bind(pwd_hash, pwd_salt_b64, id)
+      );
+    }
+
     );
 
     // Org membership
@@ -242,9 +252,9 @@ export async function onRequestPost(ctx) {
       if (!gid) continue;
       stmts.push(
         env.DB.prepare(
-          `INSERT OR IGNORE INTO user_groups (org_id, user_id, group_id, created_at)
-           VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
-        ).bind(org_id, id, gid)
+          `INSERT OR IGNORE INTO group_members (group_id, user_id, created_at)
+           VALUES (?, ?, CURRENT_TIMESTAMP)`
+        ).bind(gid, id)
       );
     }
 
@@ -258,7 +268,7 @@ export async function onRequestPost(ctx) {
         u.email,
         COALESCE(u.display_name, u.name, u.email) AS name,
         COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
-        IFNULL((SELECT COUNT(*) FROM user_groups ug WHERE ug.org_id = ? AND ug.user_id = u.id), 0) AS group_count,
+        IFNULL((SELECT COUNT(*) FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE g.org_id = ? AND gm.user_id = u.id), 0) AS group_count,
         IFNULL((
           SELECT COUNT(*)
           FROM role_permissions rp

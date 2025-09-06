@@ -114,7 +114,7 @@ async function loadUsers(){
   const tbody = qq('#usersTable tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const users = await fetchJSON(api('/api/users'));
+  const users = await fetchJSON(api('/api/admin/users'));
 
   // Detect legacy vs expanded table by header text
   const th2 = qq('#usersTable thead th:nth-child(2)');
@@ -179,7 +179,7 @@ async function createUser(){
   const payload = { name, display_name: name, email, role, group_ids, permission_ids };
   if (password) payload.password = password;
 
-  await fetchJSON(api('/api/users'), {
+  await fetchJSON(api('/api/admin/users'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload)
@@ -280,7 +280,7 @@ qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
   if (act === 'reset-pwd') {
     const newPwd = prompt('Enter new password (leave empty to cancel):');
     if (!newPwd) return;
-    await fetchJSON(api('/api/users'), {
+    await fetchJSON(api('/api/admin/users'), {
       method:'POST',
       headers:{'content-type':'application/json'},
       body: JSON.stringify({ id, password: newPwd })
