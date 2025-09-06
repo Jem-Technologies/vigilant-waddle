@@ -54,7 +54,6 @@
             <div style="font-weight:600">${escapeHtml(u.name)}</div>
             <div class="muted" style="font-size:.85em">${escapeHtml(u.email)}</div>
           </td>
-          <td>${escapeHtml(u.username || "—")}</td>
           <td>${escapeHtml(u.role)}</td>
           <td>${deps || "—"}</td>
           <td>${grps || "—"}</td>
