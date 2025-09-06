@@ -646,18 +646,18 @@
           </details>
         </fieldset>
 
-        <!-- Permissions multi-select (inline dropdown style) -->
+        <!-- Permissions multi-select (details/summary dropdown) -->
         <fieldset class="priv-checks" id="privChecks">
           <legend class="panel-sub">Permissions</legend>
-          <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
-            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
+          <details class="ms" id="ufPermsMS">
+            <summary class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
               <span class="label">Select permissions</span>
               <span class="count pill"><span>0</span> selected</span>
-            </button>
+            </summary>
             <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
-          </div>
+          </details>
           <p class="muted" style="margin-top:6px">
-            If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
+            Custom permissions allow fine-grained access control.
           </p>
         </fieldset>
 
