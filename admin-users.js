@@ -64,13 +64,20 @@ function buildMultiSelect(rootEl, items, { onChange } = {}) {
   }
 
   rootEl.addEventListener('click', (e)=>{
-    if (e.target.closest('.ms-trigger') || e.target.closest('button')) {
+    if (e.target.closest('.ms-trigger')) {
       const open = rootEl.getAttribute('aria-expanded') === 'true';
       rootEl.setAttribute('aria-expanded', open ? 'false' : 'true');
+      // make it robust even if CSS is missing:
+      const menu = rootEl.querySelector('.ms-menu');
+      if (menu) menu.hidden = open;
     }
   });
   document.addEventListener('click', (e)=>{
-    if (!rootEl.contains(e.target)) rootEl.setAttribute('aria-expanded', 'false');
+    if (!rootEl.contains(e.target)) {
+      rootEl.setAttribute('aria-expanded', 'false');
+      const menu = rootEl.querySelector('.ms-menu');
+      if (menu) menu.hidden = true;
+    }
   });
 
   return {

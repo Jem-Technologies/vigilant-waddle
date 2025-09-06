@@ -945,6 +945,16 @@
     // Also react to admin-users.js’ event for group/department changes
     window.addEventListener('org-structure-updated', () => window.refreshChatLists?.());
   </script>
+  <script defer>
+    window.refreshChatLists = function () {
+      const sel = '#chat-root';
+      if (window.ChatPro && document.querySelector(sel)) {
+        try { window.ChatPro.unmount(); } catch {}
+        window.ChatPro.mount(sel);
+      }
+    };
+    window.addEventListener('org-structure-updated', () => window.refreshChatLists?.());
+  </script>
   <script src="dashboard-chat-pro.js" defer></script>
   <script src="dashboard.auth.js" defer></script>
   <script src="admin-users.js" defer></script>
