@@ -42,8 +42,8 @@
 
     const tbody = table.querySelector("tbody");
     tbody.innerHTML = data.map(u => {
-      const deps = u.departments.map(d => `<span class="chip">${escapeHtml(d.name)}</span>`).join(" ");
-      const grps = u.groups.map(g => `<span class="chip">${escapeHtml(g.name)}</span>`).join(" ");
+      const deps = Array.isArray(u.departments) ? u.departments.map(d => `<span class="chip">${escapeHtml(d.name)}</span>`).join(" ") : "";
+      const grps = Array.isArray(u.groups) ? u.groups.map(g => `<span class="chip">${escapeHtml(g.name)}</span>`).join(" ") : "";
       const perms = u.permissions.map(p => `<span class="chip quiet">${escapeHtml(p)}</span>`).join(" ");
       const nick = u.nickname ? escapeHtml(u.nickname) : `<span class="muted">Not set</span>`;
       const avatar = u.avatar_url ? `<img class="avatar sm" src="/cdn/${encodeURIComponent(u.avatar_url)}" alt="">` : `<span class="avatar sm initials">${initials(u.display_name || u.name)}</span>`;
