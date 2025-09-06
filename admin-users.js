@@ -6,12 +6,12 @@ const API = ''; // same origin. If different origin, set e.g. 'https://api.yours
 const api = (p) => API + p;
 
 // ---------- small helpers ----------
-const $ = (id) => document.getElementById(id);
+const $  = (id) => document.getElementById(id);
 const qq = (sel, root=document) => root.querySelector(sel);
 function firstId(...ids){ for (const id of ids){ const el=$(id); if (el) return el; } return null; }
 function escapeHtml(s){ return (s ?? '').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-// Enhanced fetch helper (shows JSON or first 500 chars of non-JSON)
+// ---------- safe fetch helper ----------
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, { credentials: 'include', ...opts });
   const ct = res.headers.get('content-type') || '';
@@ -29,67 +29,100 @@ async function fetchJSON(url, opts = {}) {
 
 // ---------- toast ----------
 const toastEl = $('toast');
-function toast(msg){ if(!toastEl){ alert(msg); return; } toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 2200); }
+function toast(msg){
+  if(!toastEl){ alert(msg); return; }
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'), 2200);
+}
 
-// ---------- multi-select factory ----------
+// ---------- multi-select factory (dropdown checkbox list) ----------
 function buildMultiSelect(rootEl, items, { onChange } = {}) {
+  if (!rootEl) return null;
   const menu = rootEl.querySelector('.ms-menu');
-  menu.innerHTML = '';
-  const state = new Set();
+  const trigger = rootEl.querySelector('.ms-trigger');
+  const countEl = rootEl.querySelector('.count span');
 
+  // reset
+  menu.innerHTML = '';
+  rootEl.setAttribute('aria-expanded', 'false');
+  menu.hidden = true;
+
+  // build rows
   for (const it of items) {
     const row = document.createElement('div');
     row.className = 'opt';
     row.setAttribute('role','option');
     row.dataset.id = String(it.id);
+
+    const cid = `${rootEl.id}_${it.id}`;
     row.innerHTML = `
-      <input type="checkbox" aria-label="${it.label}">
-      <div>
-        <div>${it.label}</div>
-        ${it.sublabel ? `<div class="muted">${it.sublabel}</div>` : ''}
-      </div>`;
-    row.addEventListener('click', () => {
-      const cb = row.querySelector('input[type="checkbox"]');
-      cb.checked = !cb.checked;
-      if (cb.checked) state.add(String(it.id)); else state.delete(String(it.id));
-      onChange?.(state);
+      <label for="${cid}" class="opt-row" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input id="${cid}" type="checkbox" value="${escapeHtml(String(it.id))}">
+        <div>
+          <div>${escapeHtml(it.label || String(it.id))}</div>
+          ${it.sublabel ? `<div class="muted" style="font-size:12px">${escapeHtml(it.sublabel)}</div>` : ''}
+        </div>
+      </label>`;
+
+    const cb = row.querySelector('input[type="checkbox"]');
+
+    // checkbox toggling (single source of truth)
+    cb.addEventListener('change', ()=>{
       updateCount();
+      onChange?.();
     });
+
+    // clicking row toggles checkbox unless you clicked the checkbox itself
+    row.addEventListener('click', (e)=>{
+      if (e.target.closest('input')) return;
+      cb.checked = !cb.checked;
+      cb.dispatchEvent(new Event('change', { bubbles:false }));
+    });
+
     menu.appendChild(row);
   }
 
+  // toggle open/close
+  const toggle = (open) => {
+    rootEl.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menu.hidden = !open;
+    if (open) menu.querySelector('input[type="checkbox"]')?.focus({ preventScroll:true });
+    else trigger?.focus({ preventScroll:true });
+  };
+
+  trigger?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const open = rootEl.getAttribute('aria-expanded') === 'true';
+    toggle(!open);
+  });
+
+  // close on outside click
+  document.addEventListener('click', (e)=>{
+    if (!rootEl.contains(e.target)) toggle(false);
+  });
+
+  // keyboard on trigger
+  trigger?.addEventListener('keydown', (e)=>{
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); toggle(true);
+    }
+  });
+
   function updateCount(){
-    const countEl = rootEl.querySelector('.count span');
-    if (countEl) countEl.textContent = state.size;
+    const n = menu.querySelectorAll('input[type="checkbox"]:checked').length;
+    if (countEl) countEl.textContent = String(n);
   }
 
-  rootEl.addEventListener('click', (e)=>{
-    if (e.target.closest('.ms-trigger')) {
-      const open = rootEl.getAttribute('aria-expanded') === 'true';
-      rootEl.setAttribute('aria-expanded', open ? 'false' : 'true');
-      // make it robust even if CSS is missing:
-      const menu = rootEl.querySelector('.ms-menu');
-      if (menu) menu.hidden = open;
-    }
-  });
-  document.addEventListener('click', (e)=>{
-    if (!rootEl.contains(e.target)) {
-      rootEl.setAttribute('aria-expanded', 'false');
-      const menu = rootEl.querySelector('.ms-menu');
-      if (menu) menu.hidden = true;
-    }
-  });
-
+  // API for the widget
   return {
-    getSelected: () => Array.from(state),
+    getSelected: () => Array.from(menu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
     setSelected: (ids=[]) => {
-      state.clear(); ids.forEach(id => state.add(String(id)));
-      for (const row of menu.querySelectorAll('.opt')) {
-        const cb = row.querySelector('input[type="checkbox"]');
-        cb.checked = state.has(row.dataset.id);
-      }
+      const want = new Set(ids.map(String));
+      menu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = want.has(cb.value));
       updateCount();
-    }
+    },
+    refresh: (newItems) => buildMultiSelect(rootEl, newItems, { onChange })
   };
 }
 
@@ -97,15 +130,17 @@ function buildMultiSelect(rootEl, items, { onChange } = {}) {
 let groupsMS, permsMS;
 
 async function loadGroups(){
-  const { groups=[] } = await fetchJSON(api('/api/groups'));
-  const items = groups.map(g => ({ id: g.id, label: g.name }));
+  const data = await fetchJSON(api('/api/groups'));
+  const arr  = Array.isArray(data) ? data : (data.groups || data.results || []);
+  const items = arr.map(g => ({ id: g.id, label: g.name, sublabel: g.department_name ? `Dept: ${g.department_name}` : '' }));
   const root = firstId('ufGroupsMS','groupsMS');
   if (root) groupsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
 }
 
 async function loadPermissions(){
-  const { permissions=[] } = await fetchJSON(api('/api/permissions'));
-  const items = permissions.map(p => ({ id: p.id, label: p.key, sublabel: p.description }));
+  const data = await fetchJSON(api('/api/permissions'));
+  const arr  = Array.isArray(data) ? data : (data.permissions || data.results || []);
+  const items = arr.map(p => ({ id: p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
   const root = firstId('ufPermsMS','permsMS');
   if (root) permsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
 }
@@ -116,7 +151,6 @@ async function loadUsers(){
   tbody.innerHTML = '';
   const users = await fetchJSON(api('/api/admin/users'));
 
-  // Detect legacy vs expanded table by header text
   const th2 = qq('#usersTable thead th:nth-child(2)');
   const hasEmailCol = th2 && /email/i.test(th2.textContent || '');
 
@@ -131,7 +165,6 @@ async function loadUsers(){
   for (const u of users) {
     const tr = document.createElement('tr');
     if (hasEmailCol) {
-      // Expanded: Name, Email, Role, Groups(count), Permissions(count), Password(reset), Actions
       tr.innerHTML = `
         <td>${escapeHtml(u.name || '')}</td>
         <td>${escapeHtml(u.email || '')}</td>
@@ -144,7 +177,6 @@ async function loadUsers(){
           <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
         </td>`;
     } else {
-      // Legacy: Name, Role, Privileges(count), Actions
       tr.innerHTML = `
         <td>${escapeHtml(u.name || '')}</td>
         <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
@@ -171,7 +203,8 @@ async function createUser(){
   const password = passwordEl?.value || '';
   const role = roleEl?.value || 'Member';
   const group_ids = groupsMS?.getSelected() || [];
-  const permission_ids = permsMS?.getSelected() || [];
+  const picked_permissions = permsMS?.getSelected() || [];
+  const permission_ids = (role === 'Custom') ? picked_permissions : []; // avoid accidental custom roles
 
   if (!email) { toast('Email is required'); return; }
   if (!name) { toast('Name is required'); return; }
@@ -185,9 +218,10 @@ async function createUser(){
     body: JSON.stringify(payload)
   });
 
-  document.getElementById('addUserModal')?.close();
-
   toast('User created');
+
+  // close dialog and refresh
+  $('addUserModal')?.close();
   resetForm();
   await loadUsers();
 }
@@ -244,35 +278,40 @@ function randomPassword(len=12){
 }
 
 // ---------- wire up ----------
+const addUserDlg = $('addUserModal');
+
 firstId('createBtn')?.addEventListener('click', createUser);
 firstId('resetFormBtn')?.addEventListener('click', resetForm);
 firstId('createGroupBtn')?.addEventListener('click', createGroup);
 firstId('createDeptBtn')?.addEventListener('click', createDepartment);
 
-// Support your legacy "open form" and "cancel" buttons too:
-const addUserDlg = document.getElementById('addUserModal');
-
+// Open the dialog properly (load lists, focus first field)
 $('btnAddUser')?.addEventListener('click', async ()=>{
   await Promise.all([loadGroups(), loadPermissions()]);
   addUserDlg?.showModal?.();
   setTimeout(()=> $('ufName')?.focus(), 0);
 });
 
+// Close dialog on Cancel
 $('btnCancelUser')?.addEventListener('click', ()=>{
   resetForm();
-  const addUserDlg = document.getElementById('addUserModal');
   addUserDlg?.close?.();
 });
 
+// Generate password
 firstId('genPwdBtn','btnGenPass')?.addEventListener('click', ()=>{
   const el = firstId('password','ufPassword');
   if (!el) return;
   el.value = randomPassword();
 });
-firstId('togglePwdBtn')?.addEventListener('click', ()=>{
-  const f = firstId('password','ufPassword');
-  if (!f) return;
-  f.type = (f.type === 'password') ? 'text' : 'password';
+
+// Optional: click-outside-to-close for dialog
+addUserDlg?.addEventListener('click', (e) => {
+  const card = addUserDlg.querySelector('.modal-dialog');
+  if (!card) return;
+  const r = card.getBoundingClientRect();
+  const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  if (!inside) addUserDlg.close();
 });
 
 // Table action handlers (stubs for now)
