@@ -55,6 +55,23 @@
   font-size:12px;
 }
 
+/* Multi-select (ms) dropdown */
+.ms { position: relative; }
+.ms .ms-trigger { width: 100%; display: inline-flex; justify-content: space-between; align-items: center; }
+.ms .ms-menu {
+  position: absolute; left: 0; right: 0; z-index: 30;
+  margin-top: 6px; padding: 8px;
+  background: var(--panel, #fff);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  max-height: 280px; overflow: auto;
+}
+.ms[aria-expanded="false"] .ms-menu { display: none; }
+.ms .opt { padding: 6px 4px; border-radius: 8px; }
+.ms .opt:hover { background: rgba(0,0,0,.04); }
+.ms .count.pill { margin-left: 8px; }
+
 
 /* === Modal base === */
 .modal { position: fixed; inset: 0; display: none; z-index: 1000; }

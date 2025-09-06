@@ -145,6 +145,29 @@ async function loadPermissions(){
   if (root) permsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
 }
 
+async function loadRoles(){
+  const sel = document.getElementById('ufRole');
+  if (!sel) return;
+  try {
+    const data = await fetchJSON('/api/roles');
+    const roles = Array.isArray(data) ? data : (data.roles || data.results || []);
+    if (!Array.isArray(roles) || !roles.length) return; // keep built-in options
+
+    const cur = sel.value || 'Member';
+    sel.innerHTML = roles.map(r =>
+      `<option value="${escapeHtml(r.name || 'Member')}">${escapeHtml(r.name || 'Member')}</option>`
+    ).join('');
+    // Ensure 'Custom' is present for permission picking
+    if (!roles.find(r => String(r.name).toLowerCase() === 'custom')) {
+      sel.insertAdjacentHTML('beforeend', `<option value="Custom">Custom</option>`);
+    }
+    if ([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  } catch (e) {
+    // If roles API fails, just keep the baked-in options
+    console.warn('loadRoles:', e?.message || e);
+  }
+}
+
 async function loadUsers(){
   const tbody = qq('#usersTable tbody');
   if (!tbody) return;
@@ -287,7 +310,7 @@ firstId('createDeptBtn')?.addEventListener('click', createDepartment);
 
 // Open the dialog properly (load lists, focus first field)
 $('btnAddUser')?.addEventListener('click', async ()=>{
-  await Promise.all([loadGroups(), loadPermissions()]);
+  await Promise.all([loadGroups(), loadPermissions(), loadRoles(), loadUsers()]);
   addUserDlg?.showModal?.();
   setTimeout(()=> $('ufName')?.focus(), 0);
 });
