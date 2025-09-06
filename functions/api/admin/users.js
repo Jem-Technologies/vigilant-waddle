@@ -112,27 +112,56 @@ export async function onRequestGet(ctx) {
     const { results } = await env.DB.prepare(
       `
       SELECT
-        u.id,
-        u.email,
-        COALESCE(u.name, u.email) AS name,
-        COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
-        COALESCE(oum.is_owner,0) AS is_owner,
-        IFNULL((
-          SELECT COUNT(*)
-          FROM group_members gm
-          JOIN groups g ON g.id = gm.group_id
-          WHERE g.org_id = ? AND gm.user_id = u.id
-        ), 0) AS group_count,
-        IFNULL((
-          SELECT COUNT(*)
-          FROM role_permissions rp
-          WHERE rp.role_id = (
-            SELECT ur.role_id
-            FROM user_roles ur
-            WHERE ur.org_id = ? AND ur.user_id = u.id
-            LIMIT 1
-          )
-        ), 0) AS perm_count
+      u.id,
+      u.email,
+      COALESCE(u.name, u.email) AS name,
+      COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
+      COALESCE(oum.is_owner,0) AS is_owner,
+
+      IFNULL((
+        SELECT COUNT(*)
+        FROM group_members gm
+        JOIN groups g ON g.id = gm.group_id
+        WHERE g.org_id = ? AND gm.user_id = u.id
+      ), 0) AS group_count,
+
+      IFNULL((
+        SELECT COUNT(*)
+        FROM role_permissions rp
+        WHERE rp.role_id = (
+        SELECT ur.role_id
+        FROM user_roles ur
+        WHERE ur.org_id = ? AND ur.user_id = u.id
+        LIMIT 1
+        )
+      ), 0) AS perm_count,
+
+      -- NEW: permission keys for the user's current role
+      IFNULL((
+        SELECT json_group_array(p.key)
+        FROM role_permissions rp
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE rp.role_id = (
+        SELECT ur.role_id
+        FROM user_roles ur
+        WHERE ur.org_id = oum.org_id AND ur.user_id = u.id
+        LIMIT 1
+        )
+      ), json('[]')) AS perms_json,
+
+      -- NEW: permission ids (to preselect in Edit modal)
+      IFNULL((
+        SELECT json_group_array(p.id)
+        FROM role_permissions rp
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE rp.role_id = (
+        SELECT ur.role_id
+        FROM user_roles ur
+        WHERE ur.org_id = oum.org_id AND ur.user_id = u.id
+        LIMIT 1
+        )
+      ), json('[]')) AS perm_ids_json
+
       FROM org_user_memberships oum
       JOIN users u ON u.id = oum.user_id
       LEFT JOIN user_roles ur ON ur.org_id = oum.org_id AND ur.user_id = oum.user_id
@@ -141,6 +170,7 @@ export async function onRequestGet(ctx) {
       ORDER BY lower(COALESCE(u.name, u.email)) ASC, lower(u.email) ASC
       `
     ).bind(org_id, org_id, org_id).all();
+
 
     return json(results ?? [], 200);
   } catch (e) {
@@ -223,34 +253,45 @@ export async function onRequestPost(ctx) {
     );
 
     // Role assignment
-    let finalRoleId =
-      (roleName === 'Admin') ? adminRoleId :
-      (roleName === 'Member' || roleName === 'Owner') ? memberRoleId : null;
+    // Decide role assignment:
+    // If permissions were explicitly chosen, always create a per-user custom role.
+    // Otherwise map to the named role (Admin / Member / Owner).
+    let finalRoleId = null;
+    const wantsCustom = Array.isArray(permission_ids) && permission_ids.length > 0;
+    const useNamedRole = !wantsCustom && roleName !== 'Custom';
 
-    // Custom role (if explicitly Custom or explicit permission set provided)
-    if (!finalRoleId && (roleName === 'Custom' || permission_ids.length > 0)) {
+    if (useNamedRole) {
+      finalRoleId =
+      (roleName === 'Admin')  ? adminRoleId :
+      (roleName === 'Owner')  ? memberRoleId :   // ownership via oum.is_owner
+      (roleName === 'Member') ? memberRoleId :
+      null;
+    }
+
+    if (!finalRoleId) {
       const customRoleId = crypto.randomUUID();
       const customRoleName = `Custom:${id.slice(0,8)}`;
 
       stmts.push(
-        env.DB.prepare(
-          `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-        ).bind(customRoleId, org_id, customRoleName, `Custom role for ${name}`)
+      env.DB.prepare(
+        `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+      ).bind(customRoleId, org_id, customRoleName, `Custom role for ${name}`)
       );
 
       for (const pid of permission_ids) {
-        if (!pid) continue;
-        stmts.push(
-          env.DB.prepare(
-            `INSERT OR IGNORE INTO role_permissions (role_id, permission_id, created_at)
-             VALUES (?, ?, CURRENT_TIMESTAMP)`
-          ).bind(customRoleId, pid)
-        );
+      if (!pid) continue;
+      stmts.push(
+        env.DB.prepare(
+        `INSERT OR IGNORE INTO role_permissions (role_id, permission_id, created_at)
+         VALUES (?, ?, CURRENT_TIMESTAMP)`
+        ).bind(customRoleId, pid)
+      );
       }
 
       finalRoleId = customRoleId;
     }
+
 
     // Assign user->role
     if (finalRoleId) {

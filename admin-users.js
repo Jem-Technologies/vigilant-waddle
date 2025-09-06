@@ -139,7 +139,7 @@ async function loadRoles(){
   }
 }
 
-async function loadUsers(){
+async function loadUsers() {
   const tbody = qq('#usersTable tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
@@ -150,39 +150,77 @@ async function loadUsers(){
 
   if (!users.length) {
     const empty = $('emptyState') || $('usersSummary');
-    if (empty) empty.style.display = 'block', (empty.textContent = 'No users yet');
+    if (empty) {
+      empty.style.display = 'block';
+      empty.textContent = 'No users yet';
+    }
     return;
   }
   const maybeHide = $('emptyState');
   if (maybeHide) maybeHide.style.display = 'none';
 
+  // Keep an index so we can fetch the user by id for Edit
+  const usersIndex = new Map();
+
   for (const u of users) {
+    usersIndex.set(u.id, u);
+
+    let keys = [];
+    try {
+      keys = JSON.parse(u.perms_json || '[]');
+    } catch {}
+    const count = Number(u.perm_count || keys.length || 0);
+
+    const keyBadges = keys.map(k => `<code class="perm-key">${escapeHtml(k)}</code>`).join(' ');
+    const keyPanel = keyBadges || '<span class="muted">No permissions</span>';
+
     const tr = document.createElement('tr');
-    if (hasEmailCol) {
-      tr.innerHTML = `
-        <td>${escapeHtml(u.name || '')}</td>
-        <td>${escapeHtml(u.email || '')}</td>
-        <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
-        <td><span class="pill" title="Groups">${Number(u.group_count||0)}</span></td>
-        <td><span class="pill" title="Permissions">${Number(u.perm_count||0)}</span></td>
-        <td><button class="btn ${qq('.table')?.classList.contains('ghost')?'ghost':'sm'}" data-act="reset-pwd" data-id="${u.id}">Reset</button></td>
-        <td>
-          <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
-          <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
-        </td>`;
-    } else {
-      tr.innerHTML = `
-        <td>${escapeHtml(u.name || '')}</td>
-        <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
-        <td><span class="pill" title="Permissions">${Number(u.perm_count||0)}</span></td>
-        <td>
-          <button class="btn sm" data-act="reset-pwd" data-id="${u.id}">Reset</button>
-          <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
-          <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
-        </td>`;
-    }
+    tr.dataset.id = u.id;
+    tr.innerHTML = `
+      <td>${escapeHtml(u.name || '')}</td>
+      <td>${escapeHtml(u.email || '')}</td>
+      <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
+      <td><span class="pill" title="Groups">${Number(u.group_count || 0)}</span></td>
+      <td class="perm-cell">
+        <details class="perm-dd">
+          <summary><span class="pill">${count}</span></summary>
+          <div class="perm-list">${keyPanel}</div>
+        </details>
+      </td>
+      <td><button class="btn sm" data-act="reset-pwd" data-id="${u.id}">Reset</button></td>
+      <td>
+        <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
+        <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
+      </td>
+    `;
     tbody.appendChild(tr);
   }
+}
+
+async function openEditUser(u) {
+  // ensure lists exist before we preselect
+  await Promise.all([loadGroups(), loadPermissions()]);
+
+  // open dialog
+  const dlg = document.getElementById('addUserModal');
+  dlg?.showModal?.();
+
+  // mark edit mode
+  const formEl = document.getElementById('userForm');
+  if (formEl) formEl.dataset.editing = u.id;
+
+  // fill basics
+  document.getElementById('ufName').value  = u.name  || '';
+  document.getElementById('ufEmail').value = u.email || '';
+  document.getElementById('ufRole').value  = u.role  || 'Member';
+
+  // preselect permissions by ids (from backend)
+  let permIds = [];
+  try { permIds = JSON.parse(u.perm_ids_json || '[]'); } catch {}
+  permsMS?.setSelected(permIds);
+
+  // focus first field
+  setTimeout(() => document.getElementById('ufName')?.focus(), 0);
 }
 
 // ---------- create user ----------
@@ -206,32 +244,30 @@ async function createUser(){
   const payload = { name, display_name: name, email, role, group_ids, permission_ids };
   if (password) payload.password = password;
 
-  await fetchJSON(api('/api/admin/users'), {
+  // NEW: include id when editing
+  const editingId = document.getElementById('userForm')?.dataset?.editing;
+  if (editingId) payload.id = editingId;
+
+  await fetchJSON('/api/admin/users', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
-  toast('User created');
-
-  // close dialog and refresh
-  $('addUserModal')?.close();
+  toast(editingId ? 'User updated' : 'User created');
+  document.getElementById('addUserModal')?.close();
   resetForm();
   await loadUsers();
 }
 
 function resetForm(){
-  const nameEl     = firstId('ufName','name');
-  const emailEl    = firstId('ufEmail','email');
-  const passwordEl = firstId('ufPassword','password');
-  const roleEl     = firstId('ufRole','role');
-  if (nameEl) nameEl.value = '';
-  if (emailEl) emailEl.value = '';
-  if (passwordEl) passwordEl.value = '';
-  if (roleEl) roleEl.value = 'Member';
-  groupsMS?.setSelected([]);
+  // ... clear fields ...
+  const formEl = document.getElementById('userForm');
+  if (formEl) formEl.dataset.editing = '';
   permsMS?.setSelected([]);
+  groupsMS?.setSelected([]);
 }
+
 
 // ---------- create group / department & push to Chats ----------
 async function createGroup(){
@@ -313,7 +349,7 @@ qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
   const btn = e.target.closest('button[data-act]');
   if (!btn) return;
   const act = btn.dataset.act;
-  const id = btn.dataset.id;
+  const id  = btn.dataset.id;
 
   if (act === 'reset-pwd') {
     const newPwd = prompt('Enter new password (leave empty to cancel):');
@@ -325,7 +361,9 @@ qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
     });
     toast('Password updated');
   } else if (act === 'edit') {
-    toast('Edit coming soon');
+    const u = usersIndex.get(id);
+    if (!u) { toast('User not found'); return; }
+    await openEditUser(u);
   } else if (act === 'disable') {
     toast('Disable coming soon');
   }
