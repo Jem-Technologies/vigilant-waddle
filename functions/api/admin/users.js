@@ -114,7 +114,7 @@ export async function onRequestGet(ctx) {
       SELECT
         u.id,
         u.email,
-        u.display_name AS name,
+        COALESCE(u.display_name, u.name, u.email) AS name,
         COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
         COALESCE(oum.is_owner,0) AS is_owner,
         IFNULL((SELECT COUNT(*) FROM user_groups ug WHERE ug.org_id = ? AND ug.user_id = u.id), 0) AS group_count,
@@ -133,7 +133,7 @@ export async function onRequestGet(ctx) {
       LEFT JOIN user_roles ur ON ur.org_id = oum.org_id AND ur.user_id = oum.user_id
       LEFT JOIN roles r ON r.id = ur.role_id
       WHERE oum.org_id = ?
-      ORDER BY lower(u.display_name), lower(u.email)
+      ORDER BY lower(COALESCE(u.display_name, u.name, u.email)), lower(u.email)
       `
     ).bind(org_id, org_id, org_id).all();
 
@@ -256,7 +256,7 @@ export async function onRequestPost(ctx) {
       SELECT
         u.id,
         u.email,
-        u.display_name AS name,
+        COALESCE(u.display_name, u.name, u.email) AS name,
         COALESCE(r.name, CASE WHEN oum.is_owner=1 THEN 'Owner' ELSE 'Member' END) AS role,
         IFNULL((SELECT COUNT(*) FROM user_groups ug WHERE ug.org_id = ? AND ug.user_id = u.id), 0) AS group_count,
         IFNULL((
