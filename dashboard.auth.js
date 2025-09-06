@@ -55,8 +55,8 @@
             <div class="muted" style="font-size:.85em">${escapeHtml(u.email)}</div>
           </td>
           <td>${escapeHtml(u.role)}</td>
-          <td>${escapeHtml(d.name)}</td>
-          <td>${escapeHtml(g.name)}</td>
+          <td>${deps || "—"}</td>
+          <td>${grps || "—"}</td>
           <td>${nick}</td>
           <td style="max-width:360px">${perms || "—"}</td>
         </tr>
