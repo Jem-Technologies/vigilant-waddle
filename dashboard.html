@@ -576,10 +576,10 @@
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Groups</th>
-                <th>Permissions</th>
+                <th>Roles</th>
+                <th class="num">Permissions</th>
+                <th class="num">Departments</th>
+                <th class="num">Groups</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -632,6 +632,18 @@
             <button type="button" class="btn sm" id="btnGenPass">Generate</button>
           </label>
         </div>
+
+        <!-- Departments multi-select -->
+        <fieldset>
+          <legend class="panel-sub">Departments</legend>
+          <details class="ms" id="ufDeptsMS">
+            <summary class="ms-trigger btn" style="justify-content:space-between;width:100%">
+              <span class="label">Select departments</span>
+              <span class="count pill"><span>0</span> selected</span>
+            </summary>
+            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufDeptsMenu"></div>
+          </details>
+        </fieldset>
 
         <!-- Groups multi-select (inline dropdown style) -->
         <fieldset>
@@ -904,6 +916,19 @@
 
   <!-- Toasts -->
   <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+  <dialog id="listModal" class="modal sm" aria-labelledby="listModalTitle">
+    <form method="dialog" class="modal-dialog">
+      <header class="modal-header">
+        <h3 id="listModalTitle">List</h3>
+        <button type="submit" class="icon-btn close" id="closeListModal" value="close" title="Close">✕</button>
+      </header>
+      <div class="modal-body">
+        <ul id="listModalList" class="stack"></ul>
+      </div>
+    </form>
+  </dialog>
+
 
   <script>
   (async function boot() {
