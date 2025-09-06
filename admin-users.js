@@ -235,7 +235,14 @@
     return { groups, depts, perms };
   }
 
+  async function ensureOrgDataLoaded() {
+    if (!_groups?.length || !_depts?.length || !_perms?.length) {
+      await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
+    }
+  }
+
   async function loadUsers() {
+    await ensureOrgDataLoaded();
     const tbody = qq('#usersTable tbody');
     if (!tbody) return;
     let users = [];
