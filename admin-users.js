@@ -36,14 +36,24 @@ function toast(msg){
   setTimeout(()=>toastEl.classList.remove('show'), 2200);
 }
 
+/* ========================================================================== */
+/* Multi-select (Groups / Permissions) — supports either:
+   (A) <details class="ms"><summary class="ms-trigger">…</summary><div class="ms-menu">…</div></details>
+   (B) <div class="ms"><button class="ms-trigger">…</button><div class="ms-menu">…</div></div>
+   Uses pointerdown + capture to avoid “blink close” from global handlers. */
+/* ========================================================================== */
 function buildMultiSelect(rootEl, items) {
   if (!rootEl) return null;
 
-  const menu    = rootEl.querySelector('.ms-menu');
-  const countEl = rootEl.querySelector('.count span');
+  const isDetails = rootEl.tagName.toLowerCase() === 'details';
+  const trigger   = rootEl.querySelector('.ms-trigger');
+  const menu      = rootEl.querySelector('.ms-menu');
+  const countEl   = rootEl.querySelector('.count span');
 
-  // clear and rebuild options
+  // reset options
   menu.innerHTML = '';
+
+  // rows
   for (const it of items) {
     const id  = String(it.id);
     const cid = `${rootEl.id}_${id}`;
@@ -66,7 +76,7 @@ function buildMultiSelect(rootEl, items) {
     const cb = row.querySelector('input[type="checkbox"]');
     cb.addEventListener('change', updateCount);
 
-    // Click anywhere on the row toggles the checkbox
+    // click anywhere on row toggles checkbox
     row.addEventListener('click', (e) => {
       if (!e.target.closest('input')) {
         cb.checked = !cb.checked;
@@ -77,17 +87,36 @@ function buildMultiSelect(rootEl, items) {
     menu.appendChild(row);
   }
 
+  // toggling for non-<details> flavor
+  let open = false;
+  if (!isDetails) {
+    // baseline hidden state on div.ms flavor
+    rootEl.setAttribute('aria-expanded', 'false');
+    menu.hidden = true;
+
+    const openMenu  = () => { if (open) return; open = true;  rootEl.setAttribute('aria-expanded','true');  menu.hidden = false;  menu.querySelector('input')?.focus({ preventScroll:true }); };
+    const closeMenu = () => { if (!open) return; open = false; rootEl.setAttribute('aria-expanded','false'); menu.hidden = true; };
+
+    // prevent outside “click to close” from seeing the open click
+    trigger?.addEventListener('pointerdown', (e)=>{ e.preventDefault(); e.stopPropagation(); open ? closeMenu() : openMenu(); }, { capture:true });
+    menu.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); }, { capture:true });
+    document.addEventListener('pointerdown', (e)=>{ if (!rootEl.contains(e.target)) closeMenu(); });
+    trigger?.addEventListener('keydown', (e)=>{ if (['Enter',' ','ArrowDown'].includes(e.key)){ e.preventDefault(); openMenu(); }});
+    rootEl.addEventListener('keydown', (e)=>{ if (e.key === 'Escape'){ e.stopPropagation(); closeMenu(); trigger?.focus(); }});
+  } else {
+    // <details> flavor: count updates on toggle too
+    rootEl.addEventListener('toggle', updateCount);
+  }
+
   function updateCount() {
     const n = menu.querySelectorAll('input[type="checkbox"]:checked').length;
     if (countEl) countEl.textContent = String(n);
   }
-  // initialize count
+  // initial count
   updateCount();
 
-  // expose API
   return {
-    getSelected: () =>
-      Array.from(menu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
+    getSelected: () => Array.from(menu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
     setSelected: (ids = []) => {
       const want = new Set(ids.map(String));
       menu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = want.has(cb.value));
@@ -96,52 +125,63 @@ function buildMultiSelect(rootEl, items) {
   };
 }
 
-// Load and mount
+/* ---------- loaders ---------- */
 let groupsMS, permsMS;
 
 async function loadGroups(){
-  const data = await fetchJSON('/api/groups');
+  const data = await fetchJSON(api('/api/groups'));
   const list = Array.isArray(data) ? data : (data.groups || data.results || []);
-  const items = list.map(g => ({ id: g.id, label: g.name, sublabel: g.department_name ? `Dept: ${g.department_name}` : '' }));
-  const root = document.getElementById('ufGroupsMS');
-  if (root) groupsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
+  const items = list.map(g => ({
+    id: g.id,
+    label: g.name,
+    sublabel: g.department_name ? `Dept: ${g.department_name}` : ''
+  }));
+  const root = $('ufGroupsMS');
+  if (root) groupsMS = buildMultiSelect(root, items);
 }
 
 async function loadPermissions(){
-  const data = await fetchJSON('/api/permissions');
+  const data = await fetchJSON(api('/api/permissions'));
   const list = Array.isArray(data) ? data : (data.permissions || data.results || []);
-  const items = list.map(p => ({ id: p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
-  const root = document.getElementById('ufPermsMS');
-  if (root) permsMS = buildMultiSelect(root, items, { onChange: ()=>{} });
+  const items = list.map(p => ({
+    id: p.id,
+    label: p.key || p.name || p.id,
+    sublabel: p.description || ''
+  }));
+  const root = $('ufPermsMS');
+  if (root) permsMS = buildMultiSelect(root, items);
 }
 
-
+// optional: dynamic roles list (labels only)
 async function loadRoles(){
-  const sel = document.getElementById('ufRole');
+  const sel = $('ufRole');
   if (!sel) return;
   try {
-    const data = await fetchJSON('/api/roles');
+    const data = await fetchJSON(api('/api/roles'));
     const roles = Array.isArray(data) ? data : (data.roles || data.results || []);
-    if (!Array.isArray(roles) || !roles.length) return; // keep built-in options
-
+    if (!Array.isArray(roles) || !roles.length) return;
     const cur = sel.value || 'Member';
     sel.innerHTML = roles.map(r =>
       `<option value="${escapeHtml(r.name || 'Member')}">${escapeHtml(r.name || 'Member')}</option>`
     ).join('');
-    // Ensure 'Custom' is present for permission picking
-    if (!roles.find(r => String(r.name).toLowerCase() === 'custom')) {
+    if (![...sel.options].some(o=>o.value==='Custom')) {
       sel.insertAdjacentHTML('beforeend', `<option value="Custom">Custom</option>`);
     }
     if ([...sel.options].some(o=>o.value===cur)) sel.value = cur;
   } catch (e) {
-    // If roles API fails, just keep the baked-in options
     console.warn('loadRoles:', e?.message || e);
   }
 }
 
-async function loadUsers() {
+/* ========================================================================== */
+/* Users table                                                                */
+/* ========================================================================== */
+let usersIndex = new Map();
+
+async function loadUsers(){
   const tbody = qq('#usersTable tbody');
   if (!tbody) return;
+
   tbody.innerHTML = '';
   const users = await fetchJSON(api('/api/admin/users'));
 
@@ -150,128 +190,154 @@ async function loadUsers() {
 
   if (!users.length) {
     const empty = $('emptyState') || $('usersSummary');
-    if (empty) {
-      empty.style.display = 'block';
-      empty.textContent = 'No users yet';
-    }
+    if (empty) { empty.style.display = 'block'; empty.textContent = 'No users yet'; }
     return;
   }
   const maybeHide = $('emptyState');
   if (maybeHide) maybeHide.style.display = 'none';
 
-  // Keep an index so we can fetch the user by id for Edit
-  const usersIndex = new Map();
+  usersIndex = new Map();
 
   for (const u of users) {
     usersIndex.set(u.id, u);
 
+    // permission keys for preview
     let keys = [];
-    try {
-      keys = JSON.parse(u.perms_json || '[]');
-    } catch {}
+    try { keys = JSON.parse(u.perms_json || '[]'); } catch {}
     const count = Number(u.perm_count || keys.length || 0);
 
     const keyBadges = keys.map(k => `<code class="perm-key">${escapeHtml(k)}</code>`).join(' ');
-    const keyPanel = keyBadges || '<span class="muted">No permissions</span>';
+    const keyPanel  = keyBadges || '<span class="muted">No permissions</span>';
 
     const tr = document.createElement('tr');
     tr.dataset.id = u.id;
-    tr.innerHTML = `
-      <td>${escapeHtml(u.name || '')}</td>
-      <td>${escapeHtml(u.email || '')}</td>
-      <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
-      <td><span class="pill" title="Groups">${Number(u.group_count || 0)}</span></td>
-      <td class="perm-cell">
-        <details class="perm-dd">
-          <summary><span class="pill">${count}</span></summary>
-          <div class="perm-list">${keyPanel}</div>
-        </details>
-      </td>
-      <td><button class="btn sm" data-act="reset-pwd" data-id="${u.id}">Reset</button></td>
-      <td>
-        <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
-        <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
-      </td>
-    `;
+
+    if (hasEmailCol) {
+      tr.innerHTML = `
+        <td>${escapeHtml(u.name || '')}</td>
+        <td>${escapeHtml(u.email || '')}</td>
+        <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
+        <td><span class="pill" title="Groups">${Number(u.group_count||0)}</span></td>
+        <td class="perm-cell">
+          <details class="perm-dd">
+            <summary><span class="pill">${count}</span></summary>
+            <div class="perm-list">${keyPanel}</div>
+          </details>
+        </td>
+        <td><button class="btn sm" data-act="reset-pwd" data-id="${u.id}">Reset</button></td>
+        <td>
+          <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
+          <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
+        </td>`;
+    } else {
+      tr.innerHTML = `
+        <td>${escapeHtml(u.name || '')}</td>
+        <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
+        <td class="perm-cell">
+          <details class="perm-dd">
+            <summary><span class="pill">${count}</span></summary>
+            <div class="perm-list">${keyPanel}</div>
+          </details>
+        </td>
+        <td>
+          <button class="btn sm" data-act="reset-pwd" data-id="${u.id}">Reset</button>
+          <button class="btn sm" data-act="edit" data-id="${u.id}">Edit</button>
+          <button class="btn sm" data-act="disable" data-id="${u.id}">Disable</button>
+        </td>`;
+    }
     tbody.appendChild(tr);
   }
 }
 
+/* ========================================================================== */
+/* Edit user                                                                  */
+/* ========================================================================== */
 async function openEditUser(u) {
   // ensure lists exist before we preselect
   await Promise.all([loadGroups(), loadPermissions()]);
 
-  // open dialog
-  const dlg = document.getElementById('addUserModal');
+  const dlg = $('addUserModal');
   dlg?.showModal?.();
 
-  // mark edit mode
-  const formEl = document.getElementById('userForm');
+  const formEl = $('userForm');
   if (formEl) formEl.dataset.editing = u.id;
 
-  // fill basics
-  document.getElementById('ufName').value  = u.name  || '';
-  document.getElementById('ufEmail').value = u.email || '';
-  document.getElementById('ufRole').value  = u.role  || 'Member';
+  // fill fields
+  $('ufName').value  = u.name  || '';
+  $('ufEmail').value = u.email || '';
+  $('ufRole').value  = u.role  || 'Member';
 
-  // preselect permissions by ids (from backend)
+  // preselect Permissions by ids
   let permIds = [];
   try { permIds = JSON.parse(u.perm_ids_json || '[]'); } catch {}
   permsMS?.setSelected(permIds);
 
-  // focus first field
-  setTimeout(() => document.getElementById('ufName')?.focus(), 0);
+  // preselect Groups by ids (when available)
+  let groupIds = [];
+  try { groupIds = JSON.parse(u.group_ids_json || '[]'); } catch {}
+  groupsMS?.setSelected(groupIds);
+
+  setTimeout(()=> $('ufName')?.focus(), 0);
 }
 
-// ---------- create user ----------
+/* ========================================================================== */
+/* Create / Update user                                                       */
+/* ========================================================================== */
 async function createUser(){
   const nameEl     = firstId('ufName','name');
   const emailEl    = firstId('ufEmail','email');
   const passwordEl = firstId('ufPassword','password');
   const roleEl     = firstId('ufRole','role');
 
-  const name = nameEl?.value.trim();
-  const email = emailEl?.value.trim().toLowerCase();
+  const name     = nameEl?.value.trim();
+  const email    = emailEl?.value.trim().toLowerCase();
   const password = passwordEl?.value || '';
-  const role = roleEl?.value || 'Member';
-  const group_ids = groupsMS?.getSelected() || [];
-  const picked_permissions = permsMS?.getSelected() || [];
-  const permission_ids = (role === 'Custom') ? picked_permissions : []; // avoid accidental custom roles
+  const role     = roleEl?.value || 'Member';
 
   if (!email) { toast('Email is required'); return; }
-  if (!name) { toast('Name is required'); return; }
+  if (!name)  { toast('Name is required');  return; }
 
-  const payload = { name, display_name: name, email, role, group_ids, permission_ids };
+  const group_ids      = groupsMS?.getSelected() || [];
+  const permission_ids = permsMS?.getSelected()  || []; // ALWAYS send picked perms
+
+  const payload = { name, email, role, group_ids, permission_ids };
   if (password) payload.password = password;
 
-  // NEW: include id when editing
-  const editingId = document.getElementById('userForm')?.dataset?.editing;
+  // include id when editing
+  const editingId = $('userForm')?.dataset?.editing;
   if (editingId) payload.id = editingId;
 
-  await fetchJSON('/api/admin/users', {
+  await fetchJSON(api('/api/admin/users'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
   toast(editingId ? 'User updated' : 'User created');
-  document.getElementById('addUserModal')?.close();
+  $('addUserModal')?.close();
   resetForm();
   await loadUsers();
 }
 
 function resetForm(){
-  // ... clear fields ...
-  const formEl = document.getElementById('userForm');
-  if (formEl) formEl.dataset.editing = '';
+  const nameEl     = firstId('ufName','name');
+  const emailEl    = firstId('ufEmail','email');
+  const passwordEl = firstId('ufPassword','password');
+  const roleEl     = firstId('ufRole','role');
+  if (nameEl) nameEl.value = '';
+  if (emailEl) emailEl.value = '';
+  if (passwordEl) passwordEl.value = '';
+  if (roleEl) roleEl.value = 'Member';
+  const formEl = $('userForm'); if (formEl) formEl.dataset.editing = '';
   permsMS?.setSelected([]);
   groupsMS?.setSelected([]);
 }
 
-
-// ---------- create group / department & push to Chats ----------
+/* ========================================================================== */
+/* Create Group / Department (and notify Chats)                               */
+/* ========================================================================== */
 async function createGroup(){
-  const input = firstId('newGroupName');
+  const input = $('newGroupName');
   if (!input) return toast('Group input not found');
   const name = input.value.trim();
   if (!name) return toast('Group name required');
@@ -286,7 +352,7 @@ async function createGroup(){
 }
 
 async function createDepartment(){
-  const input = firstId('newDeptName');
+  const input = $('newDeptName');
   if (!input) return toast('Department input not found');
   const name = input.value.trim();
   if (!name) return toast('Department name required');
@@ -299,7 +365,9 @@ async function createDepartment(){
   window.dispatchEvent(new CustomEvent('org-structure-updated', { detail:{ type:'department', id: res?.department?.id, thread: res?.chat_thread_id }}));
 }
 
-// ---------- password helpers ----------
+/* ========================================================================== */
+/* Password helper                                                            */
+/* ========================================================================== */
 function randomPassword(len=12){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*?';
   let out = '';
@@ -307,7 +375,9 @@ function randomPassword(len=12){
   return out;
 }
 
-// ---------- wire up ----------
+/* ========================================================================== */
+/* Wire-up                                                                    */
+/* ========================================================================== */
 const addUserDlg = $('addUserModal');
 
 firstId('createBtn')?.addEventListener('click', createUser);
@@ -315,9 +385,9 @@ firstId('resetFormBtn')?.addEventListener('click', resetForm);
 firstId('createGroupBtn')?.addEventListener('click', createGroup);
 firstId('createDeptBtn')?.addEventListener('click', createDepartment);
 
-// Open the dialog properly (load lists, focus first field)
+// Open dialog (load lists fresh so newest groups/permissions appear)
 $('btnAddUser')?.addEventListener('click', async ()=>{
-  await Promise.all([loadGroups(), loadPermissions(), loadRoles(), loadUsers()]);
+  await Promise.all([loadGroups(), loadPermissions(), loadRoles()]);
   addUserDlg?.showModal?.();
   setTimeout(()=> $('ufName')?.focus(), 0);
 });
@@ -344,7 +414,7 @@ addUserDlg?.addEventListener('click', (e) => {
   if (!inside) addUserDlg.close();
 });
 
-// Table action handlers (stubs for now)
+// Table actions
 qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
   const btn = e.target.closest('button[data-act]');
   if (!btn) return;
