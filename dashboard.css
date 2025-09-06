@@ -180,7 +180,7 @@ body.wp-dots #wpLayer {
 .profile select { background: var(--muted); height: var(--h); padding: 0 10px; border-radius: 8px; border: var(--line); }
 
 /* ===== Layout container (header is 64px tall) ===== */
-.app-body{ display: grid; position:relative; z-index: 1; gap: var(--gap); padding: var(--pad); padding-bottom: 0 !important; height: calc(100vh - 64px);
+.app-body{ display: grid; position:relative; z-index: 1; padding: var(--pad); padding-bottom: 0 !important; height: calc(100vh - 64px);
 
   /* desktop/tablet: sidebar takes fixed width, main takes rest */
   --sidebar-w: 200px;              /* change to 20vw if you really want a % */
