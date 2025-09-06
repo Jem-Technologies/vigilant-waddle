@@ -235,63 +235,151 @@
     return { groups, depts, perms };
   }
 
+  // Ensure org structures are loaded before counting Admin's "ALL"
+  async function ensureOrgDataLoaded() {
+    if (!_groups.length || !_depts.length || !_perms.length) {
+      await Promise.all([loadGroups(), loadDepartments(), loadPermissions()]);
+    }
+  }
+
+  // Normalize server/local user shapes into what we need to render
+  function normalizeUser(u) {
+    if (!u || typeof u !== 'object') return null;
+
+    const id =
+      u.id || u._id || u.uuid || u.user_id || u.userId || null;
+    if (!id) {
+      console.warn('[admin-users] Skipping user without id:', u);
+      return null;
+    }
+
+    const role = (u.role || u.user_role || 'Member');
+
+    // prefer canonical arrays; accept JSON-encoded variants; fall back to older names
+    const group_ids =
+      u.group_ids ||
+      u.groups ||
+      tryParse(u.group_ids_json) ||
+      tryParse(u.groups_json) ||
+      [];
+
+    const dept_ids =
+      u.dept_ids ||
+      u.departments ||
+      tryParse(u.dept_ids_json) ||
+      tryParse(u.departments_json) ||
+      [];
+
+    // permissions might be keys or objects; normalize to keys/ids
+    let perm_keys =
+      u.perm_ids ||
+      u.perm_keys ||
+      u.privileges ||                   // sometimes names; we map later
+      tryParse(u.perms_json) ||
+      [];
+
+    perm_keys = (perm_keys || []).map(x => {
+      if (typeof x === 'string') return x;
+      if (x && typeof x === 'object') return x.key || x.id || x.name || '';
+      return '';
+    }).filter(Boolean);
+
+    return {
+      id,
+      name: u.name || u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || '(no name)',
+      email: (u.email || u.username || '').toLowerCase(),
+      role,
+      group_ids,
+      dept_ids,
+      perm_keys
+    };
+  }
+
   async function loadUsers() {
     const tbody = qq('#usersTable tbody');
     if (!tbody) return;
-    let users = [];
+
+    await ensureOrgDataLoaded();
+
+    let raw = [];
     try {
       const data = await fetchJSON(api('/api/admin/users'));
-      users = Array.isArray(data) ? data : (data.users || data.results || []);
+      raw = Array.isArray(data) ? data : (data.users || data.results || []);
     } catch (e) {
-      users = dbLoad().users;
+      raw = dbLoad().users;
     }
+
+    const users = (raw || []).map(normalizeUser).filter(Boolean);
+
     usersIndex.clear();
 
-    // build rows
-    const rows = users.map(u => {
-      usersIndex.set(u.id, u);
-      const { groups, depts, perms } = expandForView(u);
-      const permCount = perms.length;
-      const deptCount = depts.length;
-      const groupCount = groups.length;
+    // Build rows safely; tolerate single bad user without killing the table
+    let html = '';
+    for (const u of users) {
+      try {
+        usersIndex.set(u.id, {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          group_ids: u.group_ids,
+          dept_ids: u.dept_ids,
+          perm_ids: u.perm_keys
+        });
 
-      return `
-        <tr data-id="${escapeHtml(u.id)}">
-          <td>
-            <div style="font-weight:600">${escapeHtml(u.name || '')}</div>
-            <div class="muted" style="font-size:0.85em">${escapeHtml(u.email || '')}</div>
-          </td>
-          <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
-          <td class="num">
-            <button class="btn sm count-btn" data-list="perms" data-id="${escapeHtml(u.id)}" title="View permissions">
-              <span class="pill">${permCount}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
-            </button>
-          </td>
-          <td class="num">
-            <button class="btn sm count-btn" data-list="depts" data-id="${escapeHtml(u.id)}" title="View departments">
-              <span class="pill">${deptCount}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
-            </button>
-          </td>
-          <td class="num">
-            <button class="btn sm count-btn" data-list="groups" data-id="${escapeHtml(u.id)}" title="View groups">
-              <span class="pill">${groupCount}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
-            </button>
-          </td>
-          <td class="actions">
-            <button class="btn sm" data-act="edit" data-id="${escapeHtml(u.id)}">Edit</button>
-            <button class="btn sm danger" data-act="delete" data-id="${escapeHtml(u.id)}">Delete</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
+        // Admins "own" all current items; others use their explicit lists
+        const isAdmin = (u.role || '').toLowerCase() === 'admin';
+        const groups = isAdmin ? allGroups().map(g => g.id) : u.group_ids;
+        const depts  = isAdmin ? allDepts().map(d => d.id)  : u.dept_ids;
+        const perms  = isAdmin ? allPerms().map(p => p.key || p.id) : u.perm_keys;
 
-    tbody.innerHTML = rows;
+        const permCount  = (perms  || []).length;
+        const deptCount  = (depts  || []).length;
+        const groupCount = (groups || []).length;
+
+        // Use a text chevron ▾ so we don’t depend on Bootstrap Icons
+        const chev = '<span aria-hidden="true" style="margin-left:.25rem">▾</span>';
+
+        html += `
+  <tr data-id="${escapeHtml(u.id)}">
+    <td style="text-align:left;">
+      <div style="font-weight:600">${escapeHtml(u.name || '')}</div>
+      <div class="muted" style="font-size:0.85em">${escapeHtml(u.email || '')}</div>
+    </td>
+    <td style="text-align:left;"><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
+    <td class="num">
+      <button class="btn sm count-btn" data-list="perms" data-id="${escapeHtml(u.id)}" title="View permissions">
+        <span class="pill">${permCount}</span> ${chev}
+      </button>
+    </td>
+    <td class="num">
+      <button class="btn sm count-btn" data-list="depts" data-id="${escapeHtml(u.id)}" title="View departments">
+        <span class="pill">${deptCount}</span> ${chev}
+      </button>
+    </td>
+    <td class="num">
+      <button class="btn sm count-btn" data-list="groups" data-id="${escapeHtml(u.id)}" title="View groups">
+        <span class="pill">${groupCount}</span> ${chev}
+      </button>
+    </td>
+    <td class="actions" style="text-align:left;">
+      <button class="btn sm" data-act="edit" data-id="${escapeHtml(u.id)}">Edit</button>
+      <button class="btn sm danger" data-act="delete" data-id="${escapeHtml(u.id)}">Delete</button>
+    </td>
+  </tr>`;
+      } catch (err) {
+        console.error('[admin-users] render row failed for', u, err);
+      }
+    }
+
+    tbody.innerHTML = html;
 
     const summary = $('usersSummary');
     if (summary) {
       summary.textContent = `${users.length} user${users.length !== 1 ? 's' : ''} total`;
     }
   }
+
 
   // -------------------- CRUD --------------------
   function resetForm() {
