@@ -1,69 +1,87 @@
-/* Admin Users JS — fully working client-side (no backend required)
-   Replaces the original admin-users.js. Drop-in compatible with dashboard.html IDs.
-   - Users table columns: Name (shows full name + email), Roles, Permissions, Departments, Groups, Actions
-   - Actions: Edit, Delete
-   - Edit User opens modal with Name, Email, Role, Groups, Permissions, Departments
-   - Multi‑selects show counts and lists; Admin role auto-sees ALL groups/permissions/departments
+/* Admin Users — authoritative module for Admin → Users & Roles.
+   - Renders the Users table with columns: Name | Roles | Permissions | Departments | Groups | Actions
+   - Actions per row: Edit, Delete
+   - Shows counts for Permissions / Departments / Groups; clicking opens a modal list.
+   - Edit opens the existing #addUserModal populated with Name, Email, Role, Groups, Permissions, Departments.
+   - Fetches live data from /api/* when available; falls back to localStorage with sensible seeds.
+   - Admin users automatically "own" all groups/permissions/departments and always reflect newly created items.
 */
 
 (() => {
   'use strict';
 
-  // ---------- config ----------
-  const API = ''; // same origin. If different origin, set e.g. 'https://api.yoursite.com';
+  // Take ownership so dashboard.js hands off rendering to this file
+  window.__USE_ADMIN_USERS_JS = true;
+
+  // -------------------- config --------------------
+  const API = ''; // same origin; set to 'https://api.example.com' if different origin
   const api = (p) => API + p;
 
-  // ---------- small helpers ----------
+  // -------------------- helpers --------------------
   const $  = (id) => document.getElementById(id);
   const qq = (sel, root=document) => root.querySelector(sel);
-  function firstId(...ids){ for (const id of ids){ const el=$(id); if (el) return el; } return null; }
-  function escapeHtml(s){
-    return (s ?? '').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  }
-  const uid = () => (crypto?.randomUUID?.() || ('id_'+Math.random().toString(36).slice(2)));
 
-  // ---------- safe fetch helper with JSON + graceful failure ----------
+  // HTML escape; also publish globally for any other bundles
+  function escapeHtml(s) {
+    return (s == null ? '' : String(s)).replace(/[&<>\"']/g, (c) => (
+      c === '&' ? '&amp;' :
+      c === '<' ? '&lt;'  :
+      c === '>' ? '&gt;'  :
+      c === '"' ? '&quot;': '&#39;'
+    ));
+  }
+  if (!('escapeHtml' in globalThis)) globalThis.escapeHtml = escapeHtml;
+
+  // fetch JSON with graceful parsing
   async function fetchJSON(url, opts = {}) {
-    const res = await fetch(url, { credentials: 'include', ...opts }).catch(()=> null);
-    if (!res) throw new Error('Network');
-    const ct = res.headers.get('content-type') || '';
+    let res;
+    try {
+      res = await fetch(url, { credentials: 'include', ...opts });
+    } catch (e) {
+      throw new Error('NETWORK');
+    }
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
     let data = null, text = '';
     try {
       if (ct.includes('application/json')) data = await res.json();
-      else { text = await res.text(); try{ data = JSON.parse(text); }catch{} }
+      else { text = await res.text(); try { data = JSON.parse(text); } catch {} }
     } catch {}
     if (!res.ok) {
-      const msg = (data && (data.error || data.detail || data.message)) || (text?.slice(0,200)) || `HTTP ${res.status}`;
-      throw new Error(`${url}: ${msg}`);
+      const msg = (data && (data.error || data.message || data.detail)) || text || `HTTP ${res.status}`;
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
     }
     return data ?? {};
   }
 
-  // ---------- toast ----------
-  function toast(msg, tone=''){
-    const el = $('toast'); if (!el) { console.log('[toast]', msg); return; }
+  // toast (uses #toast region in dashboard.html)
+  function toast(msg, tone='') {
+    const el = $('toast');
+    if (!el) { console.log('[toast]', msg); return; }
     el.textContent = msg;
     el.className = `toast ${tone}`.trim();
     el.style.display = 'block';
-    setTimeout(()=> el.style.display = 'none', 2200);
+    setTimeout(() => { el.style.display = 'none'; }, 2200);
   }
 
-  /* ========================================================================== */
-  /* Local DB fallback (no backend required)                                    */
-  /* ========================================================================== */
+  // tiny utils
+  const uid = () => (crypto?.randomUUID?.() || ('id_'+Math.random().toString(36).slice(2)));
+  const tryParse = (s, d=[]) => { try { return JSON.parse(s); } catch { return d; } };
+
+  // -------------------- local DB fallback --------------------
   const LS_KEY = 'admin_users_db_v1';
-  function dbLoad(){
+  function dbLoad() {
     try { return JSON.parse(localStorage.getItem(LS_KEY)) || { users:[], groups:[], departments:[], permissions:[] }; }
     catch { return { users:[], groups:[], departments:[], permissions:[] }; }
   }
-  function dbSave(db){ try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch {} }
-  function dbEnsureSeeds(){
+  function dbSave(db) { try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch {} }
+  function seedIfEmpty() {
     const db = dbLoad();
-    // only seed once if totally empty
     if (!db.permissions.length) {
       db.permissions = [
-        { id:'users.read',  key:'users.read',  name:'Users: Read',  description:'Can read users' },
-        { id:'users.write', key:'users.write', name:'Users: Write', description:'Can create/edit users' },
+        { id:'users.read',  key:'users.read',  name:'Users: Read' },
+        { id:'users.write', key:'users.write', name:'Users: Write' },
         { id:'groups.read', key:'groups.read', name:'Groups: Read' },
         { id:'groups.write',key:'groups.write',name:'Groups: Write' },
         { id:'billing.view',key:'billing.view',name:'Billing: View' },
@@ -74,6 +92,7 @@
       db.departments = [
         { id:'dept-sales', name:'Sales' },
         { id:'dept-ops',   name:'Operations' },
+        { id:'dept-hr',    name:'HR' },
       ];
     }
     if (!db.groups.length) {
@@ -85,90 +104,62 @@
     }
     if (!db.users.length) {
       db.users = [
-        { id: uid(), name:'Admin User', email:'admin@example.com', role:'Admin',
-          group_ids: [], dept_ids: [], perm_ids: [] }
+        { id:uid(), name:'Admin User', email:'admin@example.com', role:'Admin', group_ids:[], dept_ids:[], perm_ids:[] },
+        { id:uid(), name:'Member One', email:'member@example.com', role:'Member',
+          group_ids:['grp-ae'], dept_ids:['dept-sales'], perm_ids:['users.read'] }
       ];
     }
     dbSave(db);
   }
-  dbEnsureSeeds();
+  seedIfEmpty();
 
-  // helpers
-  function allGroups(){ return _groupsCache ?? ( _groupsCache = curGroups() ); }
-  function allDepts(){ return _deptsCache ?? ( _deptsCache = curDepts() ); }
-  function allPerms(){ return _permsCache ?? ( _permsCache = curPerms() ); }
-  function curGroups(){ return Array.from(_groupsSrc || []); }
-  function curDepts(){ return Array.from(_deptsSrc || []); }
-  function curPerms(){ return Array.from(_permsSrc || []); }
+  // ---- caches and accessors ----
+  let _groups = [], _depts = [], _perms = [];
+  const allGroups = () => _groups.slice();
+  const allDepts  = () => _depts.slice();
+  const allPerms  = () => _perms.slice();
 
-  let _groupsSrc = null, _deptsSrc = null, _permsSrc = null;
-  let _groupsCache = null, _deptsCache = null, _permsCache = null;
+  function findGroupName(id) { return (_groups.find(g => String(g.id) === String(id)) || {}).name || String(id); }
+  function findDeptName(id)  { return (_depts.find(d => String(d.id) === String(id)) || {}).name || String(id); }
+  function findPermName(key) {
+    const p = _perms.find(p => String(p.key || p.id) === String(key));
+    return p ? (p.name || p.key || p.id) : String(key);
+  }
 
-  function invalidateCaches(){ _groupsCache=_deptsCache=_permsCache=null; }
-
-  /* ========================================================================== */
-  /* Multi-select (keep original implementation for compatibility)              */
-  /* ========================================================================== */
+  // -------------------- multi-select builder --------------------
   function buildMultiSelect(rootEl, items) {
     if (!rootEl) return null;
+    const trigger = rootEl.querySelector('.ms-trigger');
+    const menu    = rootEl.querySelector('.ms-menu');
+    const countEl = rootEl.querySelector('.count span');
 
-    const isDetails = rootEl.tagName.toLowerCase() === 'details';
-    const trigger   = rootEl.querySelector('.ms-trigger');
-    const menu      = rootEl.querySelector('.ms-menu');
-    const countEl   = rootEl.querySelector('.count span');
-
-    // reset options
     menu.innerHTML = '';
-
-    // rows
     for (const it of items) {
-      const id  = String(it.id);
+      const id = String(it.id);
       const cid = `${rootEl.id}_${id}`;
-
       const row = document.createElement('div');
       row.className = 'row';
       row.innerHTML = `
         <label for="${cid}">
           <input type="checkbox" id="${cid}" value="${escapeHtml(id)}" />
           <span class="label">
-            <strong>${escapeHtml(it.label || it.name || it.key || id)}</strong>
+            <strong>${escapeHtml(it.label || it.name || id)}</strong>
             ${it.sublabel ? `<small>${escapeHtml(it.sublabel)}</small>` : ''}
           </span>
-        </label>
-      `;
+        </label>`;
       menu.appendChild(row);
-    }
-
-    // toggling for non-<details> flavor
-    let open = false;
-    if (!isDetails) {
-      rootEl.setAttribute('aria-expanded', 'false');
-      menu.hidden = true;
-
-      const openMenu  = () => { if (open) return; open = true;  rootEl.setAttribute('aria-expanded','true');  menu.hidden = false;  trigger?.setAttribute('aria-expanded','true');  menu.querySelector('input')?.focus({ preventScroll:true }); };
-      const closeMenu = () => { if (!open) return; open = false; rootEl.setAttribute('aria-expanded','false'); menu.hidden = true;   trigger?.setAttribute('aria-expanded','false'); };
-
-      trigger?.addEventListener('click', (e)=>{ e.preventDefault(); (open ? closeMenu : openMenu)(); });
-      document.addEventListener('pointerdown', (e)=>{
-        if (!open) return;
-        if (rootEl.contains(e.target)) return;
-        closeMenu();
-      }, true);
-    } else {
-      // <details> flavor: count updates on toggle too
-      rootEl.addEventListener('toggle', updateCount);
     }
 
     function updateCount() {
       const n = menu.querySelectorAll('input[type="checkbox"]:checked').length;
       if (countEl) countEl.textContent = String(n);
     }
-    // initial count
+    menu.addEventListener('change', updateCount);
     updateCount();
 
     return {
       getSelected: () => Array.from(menu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
-      setSelected: (ids = []) => {
+      setSelected: (ids=[]) => {
         const want = new Set(ids.map(String));
         menu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = want.has(cb.value));
         updateCount();
@@ -176,188 +167,182 @@
     };
   }
 
-  /* ========================================================================== */
-  /* Loaders with backend+fallback                                              */
-  /* ========================================================================== */
+  // -------------------- loaders (server + fallback) --------------------
   let groupsMS, permsMS, deptsMS;
-  async function loadGroups(){
-    let list = [];
+
+  async function loadGroups() {
     try {
       const data = await fetchJSON(api('/api/groups'));
-      list = Array.isArray(data) ? data : (data.groups || data.results || []);
-    } catch { list = dbLoad().groups; }
-    _groupsSrc = list.map(g => ({ id:g.id, name:g.name, department_id:g.department_id, department_name: g.department_name || (dbLoad().departments.find(d=>d.id===g.department_id)?.name || '') }));
-    invalidateCaches();
-    const items = _groupsSrc.map(g => ({
+      const arr = Array.isArray(data) ? data : (data.groups || data.results || []);
+      _groups = arr.map(g => ({
+        id: g.id, name: g.name, department_id: g.department_id || g.dept_id || null,
+        department_name: g.department_name || null
+      }));
+    } catch (e) {
+      _groups = dbLoad().groups;
+    }
+    const items = _groups.map(g => ({
       id: g.id, label: g.name, sublabel: g.department_name ? `Dept: ${g.department_name}` : ''
     }));
     const root = $('ufGroupsMS');
     if (root) groupsMS = buildMultiSelect(root, items);
   }
-  async function loadPermissions(){
-    let list = [];
+
+  async function loadPermissions() {
     try {
       const data = await fetchJSON(api('/api/permissions'));
-      list = Array.isArray(data) ? data : (data.permissions || data.results || []);
-    } catch { list = dbLoad().permissions; }
-    _permsSrc = list.map(p => ({ id: (p.id || p.key), key: (p.key || p.id), name: (p.name || p.key || p.id), description: p.description || '' }));
-    invalidateCaches();
-    const items = _permsSrc.map(p => ({ id: p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
+      const arr = Array.isArray(data) ? data : (data.permissions || data.results || []);
+      _perms = arr.map(p => ({ id: p.id || p.key, key: p.key || p.id, name: p.name || p.key || p.id, description: p.description || '' }));
+    } catch (e) {
+      _perms = dbLoad().permissions;
+    }
+    const items = _perms.map(p => ({ id: p.key || p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
     const root = $('ufPermsMS');
     if (root) permsMS = buildMultiSelect(root, items);
   }
-  async function loadDepartments(){
-    let list = [];
+
+  async function loadDepartments() {
     try {
       const data = await fetchJSON(api('/api/departments'));
-      list = Array.isArray(data) ? data : (data.departments || data.results || []);
-    } catch { list = dbLoad().departments; }
-    _deptsSrc = list.map(d => ({ id:d.id, name:d.name }));
-    invalidateCaches();
-    const items = _deptsSrc.map(d => ({ id: d.id, label: d.name }));
+      const arr = Array.isArray(data) ? data : (data.departments || data.results || []);
+      _depts = arr.map(d => ({ id: d.id, name: d.name }));
+    } catch (e) {
+      _depts = dbLoad().departments;
+    }
+    const items = _depts.map(d => ({ id: d.id, label: d.name }));
     const root = $('ufDeptsMS');
     if (root) deptsMS = buildMultiSelect(root, items);
   }
 
-  /* ========================================================================== */
-  /* Users table                                                                */
-  /* ========================================================================== */
+  // -------------------- users handling --------------------
   let usersIndex = new Map();
 
-  // Utility to expand Admin's "ALL" virtual membership
-  function expandForView(u){
-    const groups = (u.role === 'Admin') ? allGroups().map(g=>g.id) : (u.group_ids || tryParse(u.group_ids_json) || []);
-    const depts  = (u.role === 'Admin') ? allDepts().map(d=>d.id)  : (u.dept_ids  || tryParse(u.dept_ids_json)  || []);
-    const perms  = (u.role === 'Admin') ? allPerms().map(p=>p.key) : (u.perm_keys || tryParse(u.perms_json)     || []);
+  function expandForView(u) {
+    // For Admins, always expose all
+    if ((u.role || '').toLowerCase() === 'admin') {
+      return {
+        groups: allGroups().map(g => g.id),
+        depts:  allDepts().map(d => d.id),
+        perms:  allPerms().map(p => p.key || p.id)
+      };
+    }
+    // otherwise take from user record (support several shapes)
+    const groups = u.group_ids || u.groups || tryParse(u.group_ids_json) || [];
+    const depts  = u.dept_ids  || u.departments || tryParse(u.dept_ids_json) || [];
+    // permissions might be keys in u.perm_ids OR names in u.privileges; normalize to keys
+    let perms = u.perm_ids || u.perm_keys || tryParse(u.perms_json) || u.privileges || [];
+    perms = (perms || []).map(x => (typeof x === 'string' ? x : (x.key || x.id || x.name || ''))).filter(Boolean);
     return { groups, depts, perms };
   }
-  function tryParse(s){ try { return JSON.parse(s || '[]'); } catch { return []; } }
 
-  async function loadUsers(){
+  async function loadUsers() {
     const tbody = qq('#usersTable tbody');
     if (!tbody) return;
-
-    tbody.innerHTML = '';
-
-    // get users
     let users = [];
     try {
       const data = await fetchJSON(api('/api/admin/users'));
       users = Array.isArray(data) ? data : (data.users || data.results || []);
-    } catch {
+    } catch (e) {
       users = dbLoad().users;
     }
+    usersIndex.clear();
 
-    if (!users.length) {
-      const empty = $('emptyState') || $('usersSummary');
-      if (empty) { empty.style.display = 'block'; empty.textContent = 'No users yet'; }
-      return;
-    }
-    const maybeHide = $('emptyState');
-    if (maybeHide) maybeHide.style.display = 'none';
-
-    usersIndex = new Map();
-
-    for (const u of users) {
+    // build rows
+    const rows = users.map(u => {
       usersIndex.set(u.id, u);
-
       const { groups, depts, perms } = expandForView(u);
+      const permCount = perms.length;
+      const deptCount = depts.length;
+      const groupCount = groups.length;
 
-      const tr = document.createElement('tr');
-      tr.dataset.id = u.id;
-
-      tr.innerHTML = `
-        <td>
-          <div style="font-weight:600">${escapeHtml(u.name || '')}</div>
-          <div class="muted" style="font-size:.85em">${escapeHtml(u.email || '')}</div>
-        </td>
-        <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
-
-        <td class="num">
-          <button class="btn sm count-btn" title="View permissions" data-list="perms" data-id="${u.id}">
-            <span class="pill">${perms.length}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
-          </button>
-        </td>
-
-        <td class="num">
-          <button class="btn sm count-btn" title="View departments" data-list="depts" data-id="${u.id}">
-            <span class="pill">${depts.length}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
-          </button>
-        </td>
-
-        <td class="num">
-          <button class="btn sm count-btn" title="View groups" data-list="groups" data-id="${u.id}">
-            <span class="pill">${groups.length}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
-          </button>
-        </td>
-
-        <td class="actions">
-          <button class="btn sm" data-act="edit"   data-id="${u.id}">Edit</button>
-          <button class="btn sm danger" data-act="delete" data-id="${u.id}">Delete</button>
-        </td>
+      return `
+        <tr data-id="${escapeHtml(u.id)}">
+          <td>
+            <div style="font-weight:600">${escapeHtml(u.name || '')}</div>
+            <div class="muted" style="font-size:0.85em">${escapeHtml(u.email || '')}</div>
+          </td>
+          <td><span class="pill">${escapeHtml(u.role || 'Member')}</span></td>
+          <td class="num">
+            <button class="btn sm count-btn" data-list="perms" data-id="${escapeHtml(u.id)}" title="View permissions">
+              <span class="pill">${permCount}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+          </td>
+          <td class="num">
+            <button class="btn sm count-btn" data-list="depts" data-id="${escapeHtml(u.id)}" title="View departments">
+              <span class="pill">${deptCount}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+          </td>
+          <td class="num">
+            <button class="btn sm count-btn" data-list="groups" data-id="${escapeHtml(u.id)}" title="View groups">
+              <span class="pill">${groupCount}</span> <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+          </td>
+          <td class="actions">
+            <button class="btn sm" data-act="edit" data-id="${escapeHtml(u.id)}">Edit</button>
+            <button class="btn sm danger" data-act="delete" data-id="${escapeHtml(u.id)}">Delete</button>
+          </td>
+        </tr>
       `;
-      tbody.appendChild(tr);
-    }
+    }).join('');
+
+    tbody.innerHTML = rows;
 
     const summary = $('usersSummary');
-    if (summary) summary.textContent = `${users.length} user${users.length!==1?'s':''} total`;
+    if (summary) {
+      summary.textContent = `${users.length} user${users.length !== 1 ? 's' : ''} total`;
+    }
   }
 
-  /* ========================================================================== */
-  /* Create / Update / Delete user                                              */
-  /* ========================================================================== */
-  function resetForm(){
-    const nameEl     = firstId('ufName','name');
-    const emailEl    = firstId('ufEmail','email');
-    const passwordEl = firstId('ufPassword','password');
-    const roleEl     = firstId('ufRole','role');
-    if (nameEl) nameEl.value = '';
-    if (emailEl) emailEl.value = '';
-    if (passwordEl) passwordEl.value = '';
-    if (roleEl) roleEl.value = 'Member';
-    const formEl = $('userForm'); if (formEl) formEl.dataset.editing = '';
-    permsMS?.setSelected([]);
-    groupsMS?.setSelected([]);
-    deptsMS?.setSelected([]);
+  // -------------------- CRUD --------------------
+  function resetForm() {
+    const frm = $('userForm');
+    if (frm) frm.dataset.editing = '';
+    const name = $('ufName'); if (name) name.value = '';
+    const email = $('ufEmail'); if (email) email.value = '';
+    const pwd = $('ufPassword'); if (pwd) pwd.value = '';
+    const role = $('ufRole'); if (role) role.value = 'Member';
+    permsMS && permsMS.setSelected([]);
+    groupsMS && groupsMS.setSelected([]);
+    deptsMS && deptsMS.setSelected([]);
   }
 
-  async function createUser(){
-    const nameEl     = firstId('ufName','name');
-    const emailEl    = firstId('ufEmail','email');
-    const passwordEl = firstId('ufPassword','password');
-    const roleEl     = firstId('ufRole','role');
+  function randomPassword(len=12) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*?';
+    let out = '';
+    for (let i=0;i<len;i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+  }
 
-    const name     = nameEl?.value.trim();
-    const email    = emailEl?.value.trim().toLowerCase();
-    const password = passwordEl?.value || '';
-    const role     = roleEl?.value || 'Member';
+  async function createOrUpdateUser() {
+    const nameEl = $('ufName');
+    const emailEl = $('ufEmail');
+    const pwdEl = $('ufPassword');
+    const roleEl = $('ufRole');
+    const name = (nameEl?.value || '').trim();
+    const email = (emailEl?.value || '').trim().toLowerCase();
+    const password = pwdEl?.value || '';
+    const role = roleEl?.value || 'Member';
 
-    if (!name)  return toast('Name is required');
-    if (!email) return toast('Email is required');
+    if (!name) { toast('Name is required'); return; }
+    if (!email) { toast('Email is required'); return; }
 
-    // collect selections
     let perm_ids = permsMS?.getSelected() || [];
     let group_ids = groupsMS?.getSelected() || [];
     let dept_ids = deptsMS?.getSelected() || [];
 
     // Admin gets everything automatically
-    if (role === 'Admin') {
-      perm_ids = allPerms().map(p=>p.id || p.key);
-      group_ids = allGroups().map(g=>g.id);
-      dept_ids = allDepts().map(d=>d.id);
+    if (role.toLowerCase() === 'admin') {
+      perm_ids = allPerms().map(p => p.key || p.id);
+      group_ids = allGroups().map(g => g.id);
+      dept_ids = allDepts().map(d => d.id);
     }
 
-    const payload = {
-      name, email, role,
-      perm_ids, group_ids, dept_ids
-    };
+    const frm = $('userForm');
+    const editingId = (frm?.dataset?.editing || '').trim();
 
-    const formEl = $('userForm');
-    const editingId = formEl?.dataset?.editing || '';
-    if (editingId) payload.id = editingId;
+    const payload = { id: editingId || undefined, name, email, role, perm_ids, group_ids, dept_ids };
     if (password) payload.password = password;
 
-    // Try server first
     let ok = true;
     try {
       await fetchJSON(api('/api/admin/users'), {
@@ -365,16 +350,16 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload)
       });
-    } catch {
+    } catch (e) {
       ok = false;
     }
 
-    // Fallback: local DB update
     if (!ok) {
+      // local fallback
       const db = dbLoad();
       if (editingId) {
         const i = db.users.findIndex(x => x.id === editingId);
-        if (i>=0) db.users[i] = { ...db.users[i], ...payload };
+        if (i >= 0) db.users[i] = { ...db.users[i], ...payload };
       } else {
         db.users.push({ id: uid(), ...payload });
       }
@@ -387,24 +372,19 @@
     await loadUsers();
   }
 
-  async function deleteUser(id){
+  async function deleteUser(id) {
     if (!id) return;
     const u = usersIndex.get(id);
-    if (!u) return toast('User not found');
-    if (u.role === 'Admin') {
-      // count how many admins remain
-      let users = [];
-      try {
-        const data = await fetchJSON(api('/api/admin/users'));
-        users = Array.isArray(data) ? data : (data.users || data.results || []);
-      } catch {
-        users = dbLoad().users;
-      }
-      const otherAdmins = users.filter(x => x.role === 'Admin' && x.id !== id).length;
-      if (otherAdmins < 1) return toast('Cannot delete the only Admin', 'warn');
+    if (!u) { toast('User not found'); return; }
+
+    // forbid deleting the last Admin
+    const users = Array.from(usersIndex.values());
+    const adminCount = users.filter(x => (x.role || '').toLowerCase() === 'admin' && x.id !== id).length;
+    if ((u.role || '').toLowerCase() === 'admin' && adminCount < 1) {
+      toast('Cannot delete the only Admin', 'warn');
+      return;
     }
 
-    // Try server
     let ok = true;
     try {
       await fetchJSON(api('/api/admin/users'), {
@@ -412,8 +392,9 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id })
       });
-    } catch { ok = false; }
-
+    } catch (e) {
+      ok = false;
+    }
     if (!ok) {
       const db = dbLoad();
       db.users = db.users.filter(x => x.id !== id);
@@ -424,131 +405,111 @@
     await loadUsers();
   }
 
-  /* ========================================================================== */
-  /* Edit User modal                                                            */
-  /* ========================================================================== */
   async function openEditUser(u) {
     await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
-
     const dlg = $('addUserModal');
-    dlg?.showModal?.();
-
-    const formEl = $('userForm');
-    if (formEl) formEl.dataset.editing = u.id;
-
-    $('ufName').value  = u.name  || '';
+    const frm = $('userForm');
+    if (frm) frm.dataset.editing = u.id;
+    $('ufName').value = u.name || '';
     $('ufEmail').value = u.email || '';
-    $('ufRole').value  = u.role  || 'Member';
+    $('ufRole').value = u.role || 'Member';
+    // Password left blank intentionally
 
     const { groups, depts, perms } = expandForView(u);
+    groupsMS && groupsMS.setSelected(groups);
+    deptsMS && deptsMS.setSelected(depts);
+    permsMS && permsMS.setSelected(perms);
 
-    permsMS?.setSelected(perms);
-    groupsMS?.setSelected(groups);
-    deptsMS?.setSelected(depts);
-
-    setTimeout(()=> $('ufName')?.focus(), 0);
+    dlg?.showModal?.();
+    setTimeout(() => $('ufName')?.focus(), 0);
   }
 
-  /* ========================================================================== */
-  /* Dialogs: Add User & List modal                                             */
-  /* ========================================================================== */
-  const addUserDlg = $('addUserModal');
-
-  // open/close
-  firstId('btnAddUser','addUserBtn')?.addEventListener('click', async ()=>{
-    resetForm();
-    await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
-    addUserDlg?.showModal?.();
-    setTimeout(()=> $('ufName')?.focus(), 0);
-  });
-  firstId('btnCancelUser','closeUserBtn')?.addEventListener('click', ()=>{
-    addUserDlg?.close?.();
-  });
-
-  // Generate password
-  firstId('genPwdBtn','btnGenPass')?.addEventListener('click', ()=>{
-    const el = firstId('password','ufPassword');
-    if (!el) return;
-    el.value = randomPassword();
-  });
-
-  // click-outside-to-close
-  addUserDlg?.addEventListener('click', (e) => {
-    const card = addUserDlg.querySelector('.modal-dialog');
-    if (!card) return;
-    const r = card.getBoundingClientRect();
-    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    if (!inside) addUserDlg.close();
-  });
-
-  // Save
-  $('createBtn')?.addEventListener('click', createUser);
-
-  // small generator
-  function randomPassword(len=12){
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*?';
-    let out = '';
-    for (let i=0;i<len;i++) out += chars[Math.floor(Math.random()*chars.length)];
-    return out;
-  }
-
-  // List modal (for viewing permissions/groups/departments)
-  function showListModal(title, items){
+  // -------------------- modal: list viewer --------------------
+  function showListModal(title, items) {
     const dlg = $('listModal');
-    if (!dlg) return alert(items.join('\n'));
+    if (!dlg) { alert(items.join('\n')); return; }
     $('listModalTitle').textContent = title;
     const ul = $('listModalList');
-    ul.innerHTML = items.length ? items.map(x=>`<li>${escapeHtml(x)}</li>`).join('') : '<li class="muted">None</li>';
+    ul.innerHTML = items.length ? items.map(x => `<li>${escapeHtml(x)}</li>`).join('') : '<li class="muted">None</li>';
     dlg.showModal?.();
   }
-  $('closeListModal')?.addEventListener('click', ()=> $('listModal')?.close());
 
-  // Table interactions
-  qq('#usersTable tbody')?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('button[data-act], button[data-list]');
-    if (!btn) return;
+  // -------------------- wire up --------------------
+  function bindHandlers() {
+    // open Add User
+    const addBtn = $('btnAddUser');
+    if (addBtn) addBtn.addEventListener('click', async () => {
+      resetForm();
+      await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
+      $('addUserModal')?.showModal?.();
+      setTimeout(() => $('ufName')?.focus(), 0);
+    });
 
-    const id  = btn.dataset.id;
-    if (btn.dataset.act === 'edit') {
-      const u = usersIndex.get(id);
-      if (!u) return toast('User not found');
-      await openEditUser(u);
-      return;
-    }
-    if (btn.dataset.act === 'delete') {
-      if (!confirm('Delete this user?')) return;
-      await deleteUser(id);
-      return;
-    }
+    // cancel
+    $('btnCancelUser')?.addEventListener('click', () => $('addUserModal')?.close());
 
-    // List buttons
-    const list = btn.dataset.list;
-    if (list) {
-      const u = usersIndex.get(id);
-      if (!u) return toast('User not found');
-      const { groups, depts, perms } = expandForView(u);
-      if (list === 'perms' || list === 'permissions') {
-        const labels = (perms || []).map(k => (allPerms().find(p=>p.key === k || p.id === k)?.name || k));
-        showListModal(`${u.name} — Permissions`, labels);
-      } else if (list === 'groups') {
-        const labels = (groups || []).map(gid => (allGroups().find(g=>g.id===gid)?.name || gid));
-        showListModal(`${u.name} — Groups`, labels);
-      } else if (list === 'depts' || list === 'departments') {
-        const labels = (depts || []).map(did => (allDepts().find(d=>d.id===did)?.name || did));
-        showListModal(`${u.name} — Departments`, labels);
+    // generate password
+    $('btnGenPass')?.addEventListener('click', () => {
+      const el = $('ufPassword');
+      if (el) el.value = randomPassword();
+    });
+
+    // save
+    $('createBtn')?.addEventListener('click', (e) => {
+      e?.preventDefault?.();
+      createOrUpdateUser();
+    });
+
+    // list modal close
+    $('closeListModal')?.addEventListener('click', () => $('listModal')?.close());
+
+    // table delegation
+    const tbody = qq('#usersTable tbody');
+    if (tbody) tbody.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (btn.dataset.act === 'edit') {
+        const u = usersIndex.get(id);
+        if (!u) { toast('User not found'); return; }
+        await openEditUser(u);
+        return;
       }
-      return;
-    }
-  });
+      if (btn.dataset.act === 'delete') {
+        if (!confirm('Delete this user?')) return;
+        await deleteUser(id);
+        return;
+      }
+      if (btn.dataset.list) {
+        const u = usersIndex.get(id);
+        if (!u) { toast('User not found'); return; }
+        const { groups, depts, perms } = expandForView(u);
+        if (btn.dataset.list === 'perms') {
+          showListModal(`${u.name} — Permissions`, (perms || []).map(findPermName));
+        } else if (btn.dataset.list === 'groups') {
+          showListModal(`${u.name} — Groups`, (groups || []).map(findGroupName));
+        } else if (btn.dataset.list === 'depts') {
+          showListModal(`${u.name} — Departments`, (depts || []).map(findDeptName));
+        }
+      }
+    });
 
-  // ---------- boot ----------
-  (async function init(){
+    // when org structure changes elsewhere, reload counts and admin rows reflect new items
+    window.addEventListener('org-structure-updated', async () => {
+      await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
+      await loadUsers();
+    });
+  }
+
+  // -------------------- init --------------------
+  (async function init() {
     try {
       await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
       await loadUsers();
+      bindHandlers();
     } catch (e) {
-      console.error(e);
-      toast('Failed to load admin data');
+      console.error('[admin-users] init failed:', e);
+      toast('Failed to load admin users');
     }
   })();
 

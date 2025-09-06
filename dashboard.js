@@ -1235,6 +1235,7 @@ function getAllTimezones() {
 
    // --- Admin Users Manager (panel) ---
   async function renderAdminUsers() {
+    if (window.__USE_ADMIN_USERS_JS) return; // hand off to admin-users.js
     const card = document.getElementById('adminUsersCard');
     if (!card) return;
 
