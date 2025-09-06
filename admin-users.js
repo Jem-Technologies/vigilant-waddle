@@ -37,42 +37,97 @@ function toast(msg){
 }
 
 // ---------- multi-select factory (dropdown checkbox list) ----------
-function buildMultiSelect(rootEl, items, { onChange } = {}) {
+function buildMultiSelect(rootEl, items) {
   if (!rootEl) return null;
-  const menu = rootEl.querySelector('.ms-menu');
+
+  const menu    = rootEl.querySelector('.ms-menu');
   const trigger = rootEl.querySelector('.ms-trigger');
   const countEl = rootEl.querySelector('.count span');
 
+  // reset
   menu.innerHTML = '';
-  rootEl.setAttribute('aria-expanded','false'); menu.hidden = true;
+  rootEl.setAttribute('aria-expanded','false');
+  menu.hidden = true;
 
+  // build rows
   for (const it of items) {
+    const id  = String(it.id);
+    const cid = `${rootEl.id}_${id}`;
+
     const row = document.createElement('div');
-    row.className = 'opt'; row.setAttribute('role','option'); row.dataset.id = String(it.id);
-    const cid = `${rootEl.id}_${it.id}`;
+    row.className = 'opt';
+    row.setAttribute('role','option');
+    row.dataset.id = id;
+
     row.innerHTML = `
       <label for="${cid}" class="opt-row" style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input id="${cid}" type="checkbox" value="${String(it.id)}">
+        <input id="${cid}" type="checkbox" value="${id}">
         <div>
-          <div>${escapeHtml(it.label || String(it.id))}</div>
+          <div>${escapeHtml(it.label || id)}</div>
           ${it.sublabel ? `<div class="muted" style="font-size:12px">${escapeHtml(it.sublabel)}</div>` : ''}
         </div>
-      </label>`;
+      </label>
+    `;
+
     const cb = row.querySelector('input[type="checkbox"]');
-    cb.addEventListener('change', ()=>{ updateCount(); onChange?.(); });
-    row.addEventListener('click', (e)=>{ if (!e.target.closest('input')) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }});
+    cb.addEventListener('change', updateCount);
+    row.addEventListener('click', (e) => {
+      if (!e.target.closest('input')) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+    });
+
     menu.appendChild(row);
   }
 
-  const toggle = (open) => { rootEl.setAttribute('aria-expanded', open?'true':'false'); menu.hidden = !open; };
-  trigger?.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(rootEl.getAttribute('aria-expanded')!=='true'); });
-  document.addEventListener('click', (e)=>{ if (!rootEl.contains(e.target)) toggle(false); });
-  trigger?.addEventListener('keydown', (e)=>{ if (['Enter',' ','ArrowDown'].includes(e.key)){ e.preventDefault(); toggle(true); menu.querySelector('input')?.focus(); }});
+  let open = false;
 
-  function updateCount(){ const n = menu.querySelectorAll('input:checked').length; if (countEl) countEl.textContent = String(n); }
+  const openMenu = () => {
+    if (open) return;
+    open = true;
+    rootEl.setAttribute('aria-expanded','true');
+    menu.hidden = false;
+    menu.querySelector('input')?.focus({ preventScroll:true });
+  };
+  const closeMenu = () => {
+    if (!open) return;
+    open = false;
+    rootEl.setAttribute('aria-expanded','false');
+    menu.hidden = true;
+  };
+
+  // --- IMPORTANT: use pointerdown + capture and stop propagation so global click-outside closers don't fire
+  trigger?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();          // avoid focus shift submitting parent <form>
+    e.stopPropagation();         // stop bubbling to document/global handlers
+    open ? closeMenu() : openMenu();
+  }, { capture: true });
+
+  // keep clicks inside the menu from reaching document handlers
+  menu.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+  }, { capture: true });
+
+  // close when clicking anywhere else
+  const onDocDown = (e) => { if (!rootEl.contains(e.target)) closeMenu(); };
+  document.addEventListener('pointerdown', onDocDown);
+
+  // keyboard: open with Enter/Space/ArrowDown on trigger; close with Escape
+  trigger?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      openMenu();
+    }
+  });
+  rootEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); closeMenu(); trigger?.focus(); }
+  });
+
+  function updateCount() {
+    const n = menu.querySelectorAll('input[type="checkbox"]:checked').length;
+    if (countEl) countEl.textContent = String(n);
+  }
 
   return {
-    getSelected: () => Array.from(menu.querySelectorAll('input:checked')).map(cb => cb.value),
+    getSelected: () => Array.from(menu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
     setSelected: (ids=[]) => {
       const want = new Set(ids.map(String));
       menu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = want.has(cb.value));
