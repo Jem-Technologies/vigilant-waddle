@@ -14,6 +14,16 @@
   // ---------- Utilities ----------
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+  // HTML-escape helper (make available both locally and to other bundles)
+  function escapeHtml(s) {
+    return (s ?? '').toString().replace(/[&<>"']/g, c => (
+      c === '&' ? '&amp;' :
+      c === '<' ? '&lt;'  :
+      c === '>' ? '&gt;'  :
+      c === '"' ? '&quot;': '&#39;'
+    ));
+  }
+  globalThis.escapeHtml = escapeHtml; // expose for any other modules that want it
   const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts);
   const uuid = () => crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,8));
   const fmt = (d) => new Date(d).toLocaleString();
