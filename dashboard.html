@@ -600,6 +600,7 @@
         </section>
 
         <!-- 2) Add User Modal (main) -->
+        <section aria-hidden="true">
         <div id="userModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
           <div class="modal-backdrop" onclick="document.getElementById('userModal').setAttribute('aria-hidden','true')"></div>
           <div class="modal-dialog" role="document" aria-labelledby="userModalTitle">
@@ -676,46 +677,10 @@
             </div>
           </div>
         </div>
-<!-- ===== Small Modal: Groups ===== -->
-<div id="groupsModal" class="modal sm" aria-hidden="true" role="dialog" aria-modal="true">
-  <div class="modal-backdrop" data-close="groupsModal"></div>
-  <div class="modal-dialog" role="document" aria-labelledby="groupsModalTitle">
-    <header class="modal-header">
-      <h3 id="groupsModalTitle">Select Groups</h3>
-      <button type="button" class="icon-btn close" title="Close" data-close="groupsModal">✕</button>
-    </header>
-    <div class="modal-body">
-      <div id="groupsList" class="list"></div>
-    </div>
-    <footer class="modal-footer">
-      <button class="btn" type="button" data-close="groupsModal">Cancel</button>
-      <button class="btn primary" type="button" id="saveGroupsBtn">Use Selected</button>
-    </footer>
-  </div>
-</div>
 
-<!-- ===== Small Modal: Permissions ===== -->
-<div id="permsModal" class="modal sm" aria-hidden="true" role="dialog" aria-modal="true">
-  <div class="modal-backdrop" data-close="permsModal"></div>
-  <div class="modal-dialog" role="document" aria-labelledby="permsModalTitle">
-    <header class="modal-header">
-      <h3 id="permsModalTitle">Select Permissions</h3>
-      <button type="button" class="icon-btn close" title="Close" data-close="permsModal">✕</button>
-    </header>
-    <div class="modal-body">
-      <div id="permsList" class="list"></div>
-    </div>
-    <footer class="modal-footer">
-      <button class="btn" type="button" data-close="permsModal">Cancel</button>
-      <button class="btn primary" type="button" id="savePermsBtn">Use Selected</button>
-    </footer>
-  </div>
-</div>
-
-
-  <!-- Toast region used by admin-users.js -->
-  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
-</section>
+        <!-- Toast region used by admin-users.js -->
+         <div id="toast" role="status" aria-live="polite" aria-atomic="true" style="position:fixed;right:16px;bottom:16px;z-index:9999;display:none"></div>
+        </section>
 
         <!-- CLIENT PORTAL (read-only illustration) -->
         <section data-route="/client-portal" class="route">
