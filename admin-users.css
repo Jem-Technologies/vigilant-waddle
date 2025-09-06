@@ -1,41 +1,56 @@
-/* Admin Users CSS */
-  :root {
-    --gap: 12px; --radius: 10px; --bd: 1px solid #e5e7eb; --shadow: 0 2px 10px rgba(0,0,0,.06);
-  }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; color: #0f172a; background: #fafafa; }
-  .wrap { max-width: 1200px; margin: 32px auto; padding: 0 16px; display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
-  .card { background: #fff; border: var(--bd); border-radius: var(--radius); box-shadow: var(--shadow); }
-  .card h3 { margin: 0; padding: 14px 16px; border-bottom: var(--bd); font-size: 16px; background: #f8fafc; }
-  .card .content { padding: 16px; }
-  .row { display: grid; gap: var(--gap); }
-  .row.cols-2 { grid-template-columns: 1fr 1fr; }
-  label { font-size: 12px; color: #475569; display: block; margin-bottom: 6px; }
-  input[type="text"], input[type="email"], input[type="password"], select, button, .ms {
-    width: 100%; border: var(--bd); border-radius: 8px; padding: 10px 12px; font-size: 14px; background: #fff;
-  }
-  .muted { color: #64748b; font-size: 12px; }
-  .btn { cursor: pointer; user-select: none; }
-  .btn.primary { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
-  .btn.ghost { background: #fff; }
-  .btn-row { display: flex; gap: 10px; margin-top: 8px; }
-  .inline { display: inline-flex; gap: 8px; align-items: center; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: #f1f5f9; border-radius: 999px; font-size: 12px; }
-  .table-wrap { overflow: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: var(--bd); vertical-align: middle; }
-  th { font-weight: 600; color: #334155; background: #f8fafc; position: sticky; top: 0; z-index: 1; }
-  tr:hover td { background: #fafcff; }
-  /* Multi-select dropdown with checkboxes */
-  .ms { position: relative; padding: 0; }
-  .ms > button { width: 100%; border: 0; background: transparent; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
-  .ms .count { font-variant-numeric: tabular-nums; }
-  .ms-menu { position: absolute; inset-inline-start: 0; top: calc(100% + 6px); width: 100%; max-height: 240px; overflow: auto; background: #fff; border: var(--bd); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; display: none; }
-  .ms[aria-expanded="true"] .ms-menu { display: block; }
-  .ms-menu .opt { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: center; padding: 8px 10px; cursor: pointer; }
-  .ms-menu .opt:hover { background: #f8fafc; }
-  .ms-menu input[type="checkbox"] { accent-color: #0ea5e9; }
-  .hr { height: 1px; background: #e5e7eb; margin: 8px 0; }
-  .sec-title { font-weight: 600; font-size: 12px; color: #475569; margin-top: 8px; margin-bottom: 4px; padding: 0 4px; }
-  .right-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  .toast { position: fixed; right: 16px; bottom: 16px; background: #111827; color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: .2s; }
-  .toast.show { opacity: 1; transform: translateY(0); }
+/* Multi-select dropdown */
+.ms {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0;
+  background: #fff;
+}
+.ms > .ms-trigger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+.ms .count { font-variant-numeric: tabular-nums; }
+
+.ms-menu {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(100% + 6px);
+  width: 100%;
+  max-height: 240px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  z-index: 10;
+  display: none;
+}
+.ms[aria-expanded="true"] .ms-menu { display: block; }
+
+.ms-menu .opt {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.ms-menu .opt:hover { background: #f8fafc; }
+.ms-menu input[type="checkbox"] { accent-color: #0ea5e9; }
+
+.pill {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 8px;
+  background:#f1f5f9;
+  border-radius:999px;
+  font-size:12px;
+}
