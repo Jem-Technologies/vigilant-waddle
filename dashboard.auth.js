@@ -130,14 +130,7 @@
     const elGrpTbl   = card.querySelector('#groupTable tbody');
 
     // Helpers
-    const escapeHtml = globalThis.escapeHtml || (s => (s ?? '').toString().replace(/[&<>"']/g, c => (
-      c === '&' ? '&amp;' :
-      c === '<' ? '&lt;'  :
-      c === '>' ? '&gt;'  :
-      c === '"' ? '&quot;': '&#39;'
-    )));
-
-    // Toasts
+    const escapeHtml = s => String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
     const toast = (msg,type='info')=>{
       let bar=document.querySelector('.toast-bar'); if(!bar){bar=document.createElement('div');bar.className='toast-bar';document.body.appendChild(bar);}
       const t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; bar.appendChild(t);
