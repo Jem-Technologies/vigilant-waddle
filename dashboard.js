@@ -152,31 +152,31 @@
   }
 
   // Replace your fetchJSON with this:
-async function fetchJSON(url, opts = {}) {
-  const res = await fetch(url, { credentials: 'include', ...opts });
+  async function fetchJSON(url, opts = {}) {
+    const res = await fetch(url, { credentials: 'include', ...opts });
 
-  // read the body ONCE, try to parse JSON from it
-  const raw = await res.text();
-  let data = null;
-  try { data = raw ? JSON.parse(raw) : null; } catch { /* non-JSON body */ }
+    // read the body ONCE, try to parse JSON from it
+    const raw = await res.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { /* non-JSON body */ }
 
-  if (!res.ok) {
-    const msg =
-      data?.error ||
-      data?.detail ||
-      raw ||                               // non-JSON backend error string
-      res.statusText ||
-      `HTTP ${res.status}`;
+    if (!res.ok) {
+      const msg =
+        data?.error ||
+        data?.detail ||
+        raw ||                               // non-JSON backend error string
+        res.statusText ||
+        `HTTP ${res.status}`;
 
-    const err = new Error(`${opts.method || 'GET'} ${url}: ${msg}`);
-    err.status = res.status;
-    err.body = raw;
-    err.data = data;
-    throw err;
+      const err = new Error(`${opts.method || 'GET'} ${url}: ${msg}`);
+      err.status = res.status;
+      err.body = raw;
+      err.data = data;
+      throw err;
+    }
+
+    return data ?? {};
   }
-
-  return data ?? {};
-}
 
   async function hydrateFromBackend() {
     // 1) who am I (org-scoped)
