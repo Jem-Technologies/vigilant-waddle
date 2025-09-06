@@ -7,7 +7,6 @@
   <meta name="description" content="Perfect Unified: A unified digital ecosystem prototype (HTML + CSS + JS)">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
   <link rel="stylesheet" href="dashboard.css">
-  <link rel="stylesheet" href="/css/admin-users.css">
 </head>
 <body>
   <!-- App Shell -->
@@ -561,111 +560,106 @@
             </div>
           </div>
         </section>
-
         <!-- ADMIN -->
         <section data-route="/admin" class="route">
           <div class="grid-2">
-            <!-- Left: Create User, Group, Department -->
-            <div>
-              <!-- Create User -->
-              <section class="card" id="createUserCard">
-          <header><h3>Create User</h3></header>
-          <div class="content">
-            <div class="form-row">
-              <label for="name">Name
-                <input id="name" type="text" placeholder="Jane Doe" />
-              </label>
-              <label for="email">Email
-                <input id="email" type="email" placeholder="jane@example.com" />
-              </label>
-            </div>
-            <div class="form-row">
-              <label for="password">Password <span class="muted">(optional)</span>
-                <input id="password" type="password" placeholder="••••••••" />
-              </label>
-              <div class="btn-row" style="margin-bottom:0">
-                <button class="btn ghost" id="genPwdBtn" type="button">Generate</button>
-                <button class="btn ghost" id="togglePwdBtn" type="button">Show</button>
+            <div class="card" id="adminUsersCard" aria-labelledby="usersTitle">
+              <header class="panel-header">
+          <h2 id="usersTitle">Users &amp; Roles</h2>
+          <span class="muted" id="usersSummary" aria-live="polite"></span>
+              </header>
+
+              <table class="table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Groups</th>
+              <th>Permissions</th>
+              <th>Password</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+              </table>
+
+              <div class="btn-row" style="margin-top:8px">
+          <button class="btn" id="btnAddUser">Add User</button>
               </div>
-              <label for="role">Role
-                <select id="role">
-            <option value="Member">Member</option>
-            <option value="Admin">Admin</option>
-            <option value="Custom">Custom</option>
-                </select>
-              </label>
-            </div>
-            <div class="form-row">
-              <label>Groups
-                <div class="ms" id="groupsMS" aria-expanded="false">
-            <button type="button" aria-haspopup="listbox">
+
+              <div class="form-row">
+          <label>Name
+            <input type="text" id="ufName" required>
+          </label>
+          <label>Email
+            <input type="email" id="ufEmail" required>
+          </label>
+              </div>
+
+              <div class="form-row">
+          <label>Role
+            <select id="ufRole">
+              <option value="Member">Member</option>
+              <option value="Manager">Manager</option>
+              <option value="Admin">Admin</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </label>
+          <label class="form-inline">Temp Password
+            <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated">
+            <button type="button" class="btn sm" id="btnGenPass">Generate</button>
+          </label>
+              </div>
+
+              <!-- Groups multi-select -->
+              <fieldset>
+          <legend class="panel-sub">Groups</legend>
+          <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
+            <button type="button" aria-haspopup="listbox" class="btn ghost" style="justify-content:space-between;width:100%">
               <span class="label">Select groups</span>
-              <span class="count pill"><span id="groupsCount">0</span> selected</span>
+              <span class="count pill"><span id="ufGroupsCount">0</span> selected</span>
             </button>
-            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="groupsMenu"></div>
-                </div>
-              </label>
-            </div>
-            <div class="form-row">
-              <label>Permissions
-                <div class="ms" id="permsMS" aria-expanded="false">
-            <button type="button" aria-haspopup="listbox">
+            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
+          </div>
+              </fieldset>
+
+              <!-- Permissions multi-select -->
+              <fieldset class="priv-checks" id="privChecks">
+          <legend class="panel-sub">Permissions</legend>
+          <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
+            <button type="button" aria-haspopup="listbox" class="btn ghost" style="justify-content:space-between;width:100%">
               <span class="label">Select permissions</span>
-              <span class="count pill"><span id="permsCount">0</span> selected</span>
+              <span class="count pill"><span id="ufPermsCount">0</span> selected</span>
             </button>
-            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="permsMenu"></div>
-                </div>
-              </label>
-              <div class="muted" style="margin-top:6px">
-                Custom role will be created if you pick permissions that differ from a standard role.
-              </div>
-            </div>
-            <div class="btn-row">
-              <button class="btn primary" id="createBtn" type="button">Create User</button>
-              <button class="btn ghost" id="resetFormBtn" type="button">Reset</button>
-            </div>
-            <hr>
-            <div class="form-row">
-              <div style="flex:1">
-                <div class="sec-title">Create Group</div>
-                <div class="inline" style="width:100%">
-            <input id="newGroupName" type="text" placeholder="e.g., QA Team" />
-            <button class="btn" id="createGroupBtn" type="button">Add</button>
-                </div>
-              </div>
-              <div style="flex:1">
-                <div class="sec-title">Create Department</div>
-                <div class="inline" style="width:100%">
-            <input id="newDeptName" type="text" placeholder="e.g., Support" />
-            <button class="btn" id="createDeptBtn" type="button">Add</button>
-                </div>
-              </div>
-            </div>
+            <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
           </div>
-              </section>
+          <p class="muted" style="margin-top:6px">
+            If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
+          </p>
+              </fieldset>
+
+              <div class="btn-row">
+          <button class="btn primary" id="btnSaveUser" type="button">Save</button>
+          <button class="btn" type="button" id="btnCancelUser">Cancel</button>
+              </div>
+
+              <!-- Optional: quick create group/department that also pushes to Chats -->
+              <div class="form-row" style="margin-top:12px">
+          <label>New Group
+            <div class="form-inline" style="gap:8px">
+              <input type="text" id="newGroupName" placeholder="e.g., QA Team">
+              <button class="btn sm" type="button" id="btnCreateGroup">Add</button>
             </div>
-            <!-- Right: Users Table -->
-            <div>
-              <section class="card">
-          <header><h3>Users</h3></header>
-          <div class="content table-wrap">
-            <table id="usersTable">
-              <thead>
-                <tr>
-            <th style="width:22%">Name</th>
-            <th style="width:22%">Email</th>
-            <th style="width:12%">Role</th>
-            <th style="width:12%">Groups</th>
-            <th style="width:14%">Permissions</th>
-            <th style="width:10%">Password</th>
-            <th style="width:8%">Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-            <div class="muted" id="emptyState" style="display:none;padding:16px">No users yet.</div>
-          </div>
-              </section>
+          </label>
+          <label>New Department
+            <div class="form-inline" style="gap:8px">
+              <input type="text" id="newDeptName" placeholder="e.g., Support">
+              <button class="btn sm" type="button" id="btnCreateDept">Add</button>
+            </div>
+          </label>
+              </div>
+
             </div>
           </div>
         </section>
@@ -901,7 +895,6 @@
   <!-- Toasts -->
   <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/admin-users.js"></script>
   <script src="dashboard.js" defer></script>
   <script>
   (async function boot() {
