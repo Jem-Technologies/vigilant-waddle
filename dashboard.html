@@ -560,16 +560,19 @@
             </div>
           </div>
         </section>
-        <!-- ADMIN -->
-        <section data-route="/admin" class="route">
-          <div class="grid-2">
-            <div class="card" id="adminUsersCard" aria-labelledby="usersTitle">
-              <header class="panel-header">
-          <h2 id="usersTitle">Users &amp; Roles</h2>
-          <span class="muted" id="usersSummary" aria-live="polite"></span>
-              </header>
 
-              <table class="table" id="usersTable">
+        <!-- ADMIN -->
+<section data-route="/admin" class="route" aria-labelledby="usersTitle">
+  <div class="grid-2">
+    <div class="card" id="adminUsersCard">
+      <header class="panel-header">
+        <h2 id="usersTitle">Users &amp; Roles</h2>
+        <span class="muted" id="usersSummary" aria-live="polite"></span>
+      </header>
+
+      <!-- Users table -->
+      <div class="table-wrap">
+        <table class="table" id="usersTable">
           <thead>
             <tr>
               <th>Name</th>
@@ -582,22 +585,26 @@
             </tr>
           </thead>
           <tbody></tbody>
-              </table>
+        </table>
+        <div id="emptyState" class="muted" style="display:none;margin:10px 0">No users yet</div>
+      </div>
 
-              <div class="btn-row" style="margin-top:8px">
-          <button class="btn" id="btnAddUser">Add User</button>
-              </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn" id="btnAddUser" type="button">Add User</button>
+      </div>
 
-              <div class="form-row">
+      <!-- User form (hidden until “Add User”) -->
+      <form id="userForm" hidden novalidate>
+        <div class="form-row">
           <label>Name
-            <input type="text" id="ufName" required>
+            <input type="text" id="ufName" required autocomplete="name" />
           </label>
           <label>Email
-            <input type="email" id="ufEmail" required>
+            <input type="email" id="ufEmail" required autocomplete="email" />
           </label>
-              </div>
+        </div>
 
-              <div class="form-row">
+        <div class="form-row">
           <label>Role
             <select id="ufRole">
               <option value="Member">Member</option>
@@ -606,63 +613,74 @@
               <option value="Custom">Custom</option>
             </select>
           </label>
+
           <label class="form-inline">Temp Password
-            <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated">
+            <input type="password" id="ufPassword" minlength="8" placeholder="Auto-generated" />
             <button type="button" class="btn sm" id="btnGenPass">Generate</button>
           </label>
-              </div>
+        </div>
 
-              <!-- Groups multi-select -->
-              <fieldset>
+        <!-- Groups multi-select -->
+        <fieldset>
           <legend class="panel-sub">Groups</legend>
           <div class="ms" id="ufGroupsMS" aria-expanded="false" style="max-width:640px">
-            <button type="button" aria-haspopup="listbox" class="btn ghost" style="justify-content:space-between;width:100%">
+            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
               <span class="label">Select groups</span>
-              <span class="count pill"><span id="ufGroupsCount">0</span> selected</span>
+              <span class="count pill"><span>0</span> selected</span>
             </button>
             <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufGroupsMenu"></div>
           </div>
-              </fieldset>
+        </fieldset>
 
-              <!-- Permissions multi-select -->
-              <fieldset class="priv-checks" id="privChecks">
+        <!-- Permissions multi-select -->
+        <fieldset class="priv-checks" id="privChecks">
           <legend class="panel-sub">Permissions</legend>
           <div class="ms" id="ufPermsMS" aria-expanded="false" style="max-width:640px">
-            <button type="button" aria-haspopup="listbox" class="btn ghost" style="justify-content:space-between;width:100%">
+            <button type="button" aria-haspopup="listbox" class="ms-trigger btn ghost" style="justify-content:space-between;width:100%">
               <span class="label">Select permissions</span>
-              <span class="count pill"><span id="ufPermsCount">0</span> selected</span>
+              <span class="count pill"><span>0</span> selected</span>
             </button>
             <div class="ms-menu" role="listbox" aria-multiselectable="true" id="ufPermsMenu"></div>
           </div>
           <p class="muted" style="margin-top:6px">
             If you pick custom permissions (different from Admin/Member), a custom role will be created for this user.
           </p>
-              </fieldset>
+        </fieldset>
 
-              <div class="btn-row">
-          <button class="btn primary" id="btnSaveUser" type="button">Save</button>
+        <div class="btn-row">
+          <!-- IMPORTANT: admin-users.js listens for #createBtn -->
+          <button class="btn primary" id="createBtn" type="button">Save</button>
+
+          <!-- Legacy cancel button is already supported by admin-users.js -->
           <button class="btn" type="button" id="btnCancelUser">Cancel</button>
-              </div>
 
-              <!-- Optional: quick create group/department that also pushes to Chats -->
-              <div class="form-row" style="margin-top:12px">
+          <!-- (Optional) Provide a hidden proxy so other code looking for #btnSaveUser can forward to #createBtn -->
+          <button id="btnSaveUser" type="button" hidden></button>
+        </div>
+
+        <!-- Quick create group/department (IDs chosen to avoid collisions with the
+             separate admin card that dashboard.auth.js injects) -->
+        <div class="form-row" style="margin-top:12px">
           <label>New Group
             <div class="form-inline" style="gap:8px">
-              <input type="text" id="newGroupName" placeholder="e.g., QA Team">
-              <button class="btn sm" type="button" id="btnCreateGroup">Add</button>
+              <input type="text" id="newGroupName" placeholder="e.g., QA Team" />
+              <button class="btn sm" type="button" id="createGroupBtn">Add</button>
             </div>
           </label>
           <label>New Department
             <div class="form-inline" style="gap:8px">
-              <input type="text" id="newDeptName" placeholder="e.g., Support">
-              <button class="btn sm" type="button" id="btnCreateDept">Add</button>
+              <input type="text" id="newDeptName" placeholder="e.g., Support" />
+              <button class="btn sm" type="button" id="createDeptBtn">Add</button>
             </div>
           </label>
-              </div>
+        </div>
+      </form>
+    </div>
+  </div>
 
-            </div>
-          </div>
-        </section>
+  <!-- Toast region used by admin-users.js -->
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+</section>
 
         <!-- CLIENT PORTAL (read-only illustration) -->
         <section data-route="/client-portal" class="route">
@@ -895,7 +913,6 @@
   <!-- Toasts -->
   <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
-  <script src="dashboard.js" defer></script>
   <script>
   (async function boot() {
     const res = await fetch("/api/me", { credentials:"include" });
@@ -916,7 +933,21 @@
     initEls.forEach(el => el.textContent = initials);
   })();
   </script>
-  <script src="dashboard.auth.js" defer></script>
+  <script defer>
+    // Provide the hook expected by dashboard.auth.js
+    window.refreshChatLists = async function () {
+      const sel = '#chat-root';
+      if (window.ChatPro && document.querySelector(sel)) {
+        try { window.ChatPro.unmount(); } catch {}
+        window.ChatPro.mount(sel); // remount = reload threads/messages with latest org/group changes
+      }
+    };
+    // Also react to admin-users.js’ event for group/department changes
+    window.addEventListener('org-structure-updated', () => window.refreshChatLists?.());
+  </script>
   <script src="dashboard-chat-pro.js" defer></script>
+  <script src="dashboard.auth.js" defer></script>
+  <script src="admin-users.js" defer></script>
+  <script src="dashboard.js" defer></script>
 </body>
 </html>
