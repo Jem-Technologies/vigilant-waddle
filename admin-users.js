@@ -380,7 +380,6 @@
     }
   }
 
-
   // -------------------- CRUD --------------------
   function resetForm() {
     const frm = $('userForm');
