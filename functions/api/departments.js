@@ -154,6 +154,10 @@ export async function onRequestPost(ctx) {
       console.warn("[departments][POST] thread create skipped:", err?.message || err);
       chat_thread_id = null;
     }
+    return json({ ok: true, department: { id, name, org_id, chat_thread_id } }, 200);
+  } catch (e) {
+    console.error("[departments][POST] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
 }
 

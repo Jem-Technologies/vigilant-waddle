@@ -128,41 +128,34 @@ export async function onRequestPost(ctx) {
     // --- Best-effort: create a default chat thread for this group ---
     // If your DB doesn't have a 'threads' table, this silently no-ops.
     let chat_thread_id = null;
+    try {
       chat_thread_id = crypto.randomUUID();
       await env.DB.prepare(
         `INSERT INTO threads (id, org_id, title, department_id, group_id, created_by, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, unixepoch())`
+         VALUES (?1, ?2, ?3, ?4, NULL, ?5, unixepoch())`
       ).bind(
         chat_thread_id,
         org_id,
-        `Group: ${name}`,
-        (department_id || null),
+        `Dept: ${name}`,
         id,
         (auth.userId || auth?.user?.id || null)
       ).run();
-      /* Welcome message */
+
+      // Welcome message
       await env.DB.prepare(
-        `INSERT INTO messages (id, thread_id, sender_id, kind, body, media_url, created_at)
+       `INSERT INTO messages (id, thread_id, sender_id, kind, body, media_url, created_at)
          VALUES (?1, ?2, ?3, 'text', json_object('text', ?4), NULL, datetime('now'))`
-      ).bind(crypto.randomUUID(), chat_thread_id, (auth.userId || null), `Hello, welcome to ${name}!`).run();
-     } catch (err) {
-       console.warn("[groups][POST] thread create skipped:", err?.message || err);
-       chat_thread_id = null;
-     }
+      ).bind(
+        crypto.randomUUID(),
+        chat_thread_id,
+        (auth.userId || null),
+        `Hello, welcome to ${name}!`
+      ).run();
 
-    const { results } = await env.DB
-      .prepare(`SELECT id, name, org_id, created_at FROM groups WHERE id = ?`)
-      .bind(id)
-      .all();
-
-    // Include chat_thread_id so the dashboard can push it into the Chats panel
-    return json(
-      { ok: true, group: results?.[0] ?? null, chat_thread_id },
-      201
-    );
-  } catch (e) {
-    console.error("[groups][POST] unhandled:", e);
-    return json({ error: String(e), code: "UNHANDLED" }, 500);
+    } catch (err) {
+      console.warn("[departments][POST] thread create skipped:", err?.message || err);
+      chat_thread_id = null;
+    }
   }
 
 // ---- PUT: update group (admin) + best-effort thread title sync ----
@@ -254,4 +247,5 @@ export async function onRequestDelete(ctx) {
     console.error("[groups][DELETE] unhandled:", e);
     return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
+}
 }
