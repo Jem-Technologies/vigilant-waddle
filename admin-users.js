@@ -210,11 +210,20 @@ function roleDisplay(u) {
     try {
       const data = await fetchJSON(api('/api/permissions'));
       const arr = Array.isArray(data) ? data : (data.permissions || data.results || []);
-      _perms = arr.map(p => ({ id: p.id || p.key, key: p.key || p.id, name: p.name || p.key || p.id, description: p.description || '' }));
+      _perms = arr.map(p => ({
+        id: p.id ?? p.key,
+        key: p.key ?? p.id,
+        name: p.name ?? p.key ?? p.id,
+        description: p.description || ''
+      }));
     } catch (e) {
       _perms = dbLoad().permissions;
     }
-    const items = _perms.map(p => ({ id: p.key || p.id, label: p.key || p.name || p.id, sublabel: p.description || '' }));
+    const items = _perms.map(p => ({
+      id: p.key || p.id,
+      label: p.name || p.key || p.id,
+      sublabel: p.description || ''
+    }));
     const root = $('ufPermsMS');
     if (root) permsMS = buildMultiSelect(root, items);
   }

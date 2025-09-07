@@ -6,13 +6,10 @@ function ensureDB(env) {
   if (!env?.DB) throw new Error("D1 binding env.DB is missing.");
 }
 function isAdmin(auth) {
-  return (
-    auth?.admin === true ||
-    auth?.is_admin === true ||
-    auth?.user?.role === "admin" ||
-    auth?.claims?.is_admin === true
-  );
+  const role = String(auth?.role || auth?.user?.role || "").toLowerCase();
+  return auth?.admin === true || auth?.is_admin === true || role === "admin" || auth?.claims?.is_admin === true;
 }
+
 function getOrgId(auth) {
   return (
     auth?.org_id ?? auth?.orgId ?? auth?.user?.org_id ?? auth?.session?.org_id ?? null
@@ -250,7 +247,7 @@ export async function onRequestPost(ctx) {
     const make_owner = (roleName === 'Owner');
     stmts.push(
       env.DB.prepare(
-        `INSERT OR IGNORE INTO org_user_memberships (org_id, user_id, is_owner, created_at)
+        `INSERT OR IGNORE INTO user_orgs (org_id, user_id, role, created_at)
          VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).bind(org_id, id, make_owner ? 1 : 0)
     );
@@ -365,7 +362,7 @@ export async function onRequestPost(ctx) {
           )
         ), 0) AS perm_count
       FROM users u
-      JOIN org_user_memberships oum ON oum.user_id = u.id AND oum.org_id = ?
+      JOIN user_orgs oum ON oum.user_id = u.id AND oum.org_id = ?
       LEFT JOIN user_roles ur ON ur.org_id = oum.org_id AND ur.user_id = oum.user_id
       LEFT JOIN roles r ON r.id = ur.role_id
       WHERE u.id = ?
