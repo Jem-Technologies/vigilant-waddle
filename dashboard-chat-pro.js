@@ -92,47 +92,85 @@
     if (first) { state.currentThread = first; await loadMessages(first.id); }
   }
 
-  function renderThreadTree(){
+    function renderThreadTree(){
     const el = q(SEL.list); if (!el) return;
     el.innerHTML = '';
+
     if (!state.threads.length){
       el.innerHTML = `<div class="muted">You have not been added to any groups or departments.</div>`;
       return;
     }
-    // Group threads by (dept_id -> group_id)
-    const byDept = new Map(); // deptId -> Map(groupId -> threads[])
+
+    // Build: deptId -> (groupId -> [threads])
+    const byDept = new Map();
     for (const t of state.threads){
-      const dId = t.department_id || null;
-      const gId = t.group_id || null;
+      const dId = (t.department_id ?? 'none');
+      const gId = (t.group_id ?? 'none');
       if (!byDept.has(dId)) byDept.set(dId, new Map());
-      const m = byDept.get(dId);
-      if (!m.has(gId)) m.set(gId, []);
-      m.get(gId).push(t);
+      const gm = byDept.get(dId);
+      if (!gm.has(gId)) gm.set(gId, []);
+      gm.get(gId).push(t);
     }
-    // Render each department legend, then its groups as items
+
     for (const [dId, groupsMap] of byDept.entries()){
-      const d = dId ? state.deptsById.get(dId) : null;
-      const legend = document.createElement('div');
+      const d = dId !== 'none' ? state.deptsById.get(dId) : null;
+
+      const section = document.createElement('div');
+      section.className = 'dept-accordion';
+
+      const legend = document.createElement('button');
+      legend.type = 'button';
       legend.className = 'legend';
-      legend.textContent = d ? (d.name || 'Department') : 'Uncategorized';
-      el.appendChild(legend);
+      legend.setAttribute('aria-expanded','false');
+      legend.innerHTML = `
+        <span>${esc(d ? (d.name || 'Department') : 'Uncategorized')}</span>
+        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+      `;
+
+      const container = document.createElement('div');
+      container.className = 'group-list';
+      container.hidden = true;
+
+      legend.addEventListener('click', ()=>{
+        const isOpen = container.hidden === false;
+        // accordion: close others
+        if (isOpen === false) {
+          el.querySelectorAll('.group-list:not([hidden])').forEach(n => {
+            n.hidden = true;
+            const btn = n.previousElementSibling;
+            if (btn?.setAttribute) btn.setAttribute('aria-expanded','false');
+            btn?.querySelector('i')?.classList.remove('bi-chevron-down');
+            btn?.querySelector('i')?.classList.add('bi-chevron-right');
+          });
+        }
+        container.hidden = isOpen;
+        legend.setAttribute('aria-expanded', String(!isOpen));
+        legend.querySelector('i')?.classList.toggle('bi-chevron-right', isOpen);
+        legend.querySelector('i')?.classList.toggle('bi-chevron-down', !isOpen);
+      });
+
       for (const [gId, threads] of groupsMap.entries()){
-        const g = gId ? state.groupsById.get(gId) : null;
-        const name = g ? g.name : (threads[0]?.title || 'Conversation');
+        const g = gId !== 'none' ? state.groupsById.get(gId) : null;
+        const name = g?.name || (threads[0]?.title ? threads[0].title : 'General');
+
         const item = document.createElement('div');
         item.className = 'item';
-        item.setAttribute('role', 'button');
         item.innerHTML = `<span>${esc(name)}</span>`;
         item.addEventListener('click', async ()=>{
-          // prefer a thread bound to this group; otherwise first thread in this bucket
-          const t = threads.find(x => x.group_id === gId) || threads[0];
+          const t = threads.find(x => x.group_id === (gId==='none'?null:gId)) || threads[0];
           state.currentThread = t;
           await loadMessages(t.id);
         });
-        el.appendChild(item);
+
+        container.appendChild(item);
       }
+
+      section.appendChild(legend);
+      section.appendChild(container);
+      el.appendChild(section);
     }
   }
+
 
   // ------------------- messages -------------------
   async function loadMessages(threadId){

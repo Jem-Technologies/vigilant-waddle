@@ -215,6 +215,13 @@ body.wp-dots #wpLayer {
   white-space: nowrap; box-shadow: var(--shadow); z-index: 5000;
 }
 
+/* Chat list accordion */
+#chatList .dept-accordion { margin-bottom: 8px; }
+#chatList .legend { display:flex; align-items:center; justify-content: space-between; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+#chatList .legend:hover { background: rgba(255,255,255,.06); }
+#chatList .group-list { display:flex; flex-direction:column; gap:6px; margin: 6px 0 0 12px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,.12); }
+
+
 /* ===== Sidebar & Main ===== */
 .sidebar{ grid-area: sidebar; border-right: var(--line); padding-right: var(--pad); 
   overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; transform: none;
