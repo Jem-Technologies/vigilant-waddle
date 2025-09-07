@@ -22,7 +22,7 @@ export async function onRequestGet({ request, env }) {
     // Base users in org
     const base = await env.DB.prepare(`
       SELECT u.id, u.name, u.username, u.email,
-             u.avatar AS avatar_url,
+             u.avatar_url AS avatar_url,
              u.nickname, u.use_nickname, u.created_at,
              COALESCE(r.name, m.role, 'Member') AS role,
              ur.role_id AS role_id
