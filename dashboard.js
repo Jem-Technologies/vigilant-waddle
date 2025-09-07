@@ -262,9 +262,6 @@
   }
   
   let _lastRoute = null;
-  // Only re-render if route actually changed
-  if (_lastRoute === route) return;
-  _lastRoute = route;
   function mountChatForRoute(route) {
     if (route === '/chat') {
       window.ChatPro?.mount('#chat-root');
