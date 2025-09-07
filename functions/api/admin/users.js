@@ -79,10 +79,6 @@ function b64(buf) {
   buf.forEach(b => (str += String.fromCharCode(b)));
   return btoa(str);
 }
-function strToUint8(str) {
-  const enc = new TextEncoder();
-  return enc.encode(str);
-}
 
 /* ------------- CORS / preflight ------------- */
 export async function onRequestOptions() {
@@ -174,7 +170,7 @@ export async function onRequestGet(ctx) {
       ORDER BY lower(COALESCE(u.name, u.email)) ASC, lower(u.email) ASC
     `);
 
-    const { results } = await stmt.bind(org_id).all(); // ← bind once for ?1
+    const { results } = await stmt.bind(org_id).all(); // bind once for ?1
 
     return json(results ?? [], 200);
   } catch (e) {
@@ -202,6 +198,7 @@ export async function onRequestPost(ctx) {
     const name = body?.name?.trim?.() || body?.display_name?.trim?.() || email || "New User";
     const roleName = (body?.role || '').trim() || 'Member';   // 'Admin' | 'Member' | 'Custom' | 'Owner'
     const group_ids = Array.isArray(body?.group_ids) ? body.group_ids : [];
+    const dept_ids = Array.isArray(body?.dept_ids) ? body.dept_ids : [];          // ← FIX
     const permission_ids = Array.isArray(body?.permission_ids) ? body.permission_ids : [];
     const password = body?.password?.toString?.() || null;
 
@@ -247,7 +244,7 @@ export async function onRequestPost(ctx) {
       );
     }
 
-    // Org membership
+    // Legacy membership record (kept for compatibility with downstream joins)
     const make_owner = (roleName === 'Owner');
     stmts.push(
       env.DB.prepare(
@@ -256,20 +253,17 @@ export async function onRequestPost(ctx) {
       ).bind(org_id, id, make_owner ? 1 : 0)
     );
 
-    // Role assignment
-    // Decide role assignment:
-    // If permissions were explicitly chosen, always create a per-user custom role.
-    // Otherwise map to the named role (Admin / Member / Owner).
+    // Role assignment selection
     let finalRoleId = null;
     const wantsCustom = Array.isArray(permission_ids) && permission_ids.length > 0;
     const useNamedRole = !wantsCustom && roleName !== 'Custom';
 
     if (useNamedRole) {
       finalRoleId =
-      (roleName === 'Admin')  ? adminRoleId :
-      (roleName === 'Owner')  ? memberRoleId :   // ownership via oum.is_owner
-      (roleName === 'Member') ? memberRoleId :
-      null;
+        (roleName === 'Admin')  ? adminRoleId :
+        (roleName === 'Owner')  ? memberRoleId :   // ownership via oum.is_owner
+        (roleName === 'Member') ? memberRoleId :
+        null;
     }
 
     if (!finalRoleId) {
@@ -277,34 +271,35 @@ export async function onRequestPost(ctx) {
       const customRoleName = `Custom:${id.slice(0,8)}`;
 
       stmts.push(
-      env.DB.prepare(
-        `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-      ).bind(customRoleId, org_id, customRoleName, `Custom role for ${name}`)
+        env.DB.prepare(
+          `INSERT INTO roles (id, org_id, name, description, is_admin, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+        ).bind(customRoleId, org_id, customRoleName, `Custom role for ${name}`)
       );
 
       for (const pid of permission_ids) {
-      if (!pid) continue;
-      stmts.push(
-        env.DB.prepare(
-        `INSERT OR IGNORE INTO role_permissions (role_id, permission_id, created_at)
-         VALUES (?, ?, CURRENT_TIMESTAMP)`
-        ).bind(customRoleId, pid)
-      );
+        if (!pid) continue;
+        stmts.push(
+          env.DB.prepare(
+            `INSERT OR IGNORE INTO role_permissions (role_id, permission_id, created_at)
+             VALUES (?, ?, CURRENT_TIMESTAMP)`
+          ).bind(customRoleId, pid)
+        );
       }
 
       finalRoleId = customRoleId;
     }
 
-    // Ensure org membership (user_orgs) and assign role
-     if (finalRoleId) {
-       stmts.push(
-         env.DB.prepare(
-           `INSERT OR REPLACE INTO user_roles (org_id, user_id, role_id, created_at)
-            VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
-         ).bind(org_id, id, finalRoleId)
-       );
-     }
+    // Assign user->role
+    if (finalRoleId) {
+      stmts.push(
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO user_roles (org_id, user_id, role_id, created_at)
+           VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+        ).bind(org_id, id, finalRoleId)
+      );
+    }
+
     // user_orgs role string mirrors selection (Admin|Member|Owner|Custom)
     stmts.push(
       env.DB.prepare(
@@ -317,17 +312,18 @@ export async function onRequestPost(ctx) {
     stmts.push(
       env.DB.prepare(`
         DELETE FROM department_members
-         WHERE user_id = ?1
-           AND department_id IN (SELECT id FROM departments WHERE org_id = ?2)
+         WHERE user_id = ?
+           AND department_id IN (SELECT id FROM departments WHERE org_id = ?)
       `).bind(id, org_id)
     );
     stmts.push(
       env.DB.prepare(`
         DELETE FROM group_members
-         WHERE user_id = ?1
-           AND group_id IN (SELECT id FROM groups WHERE org_id = ?2)
+         WHERE user_id = ?
+           AND group_id IN (SELECT id FROM groups WHERE org_id = ?)
       `).bind(id, org_id)
     );
+
     for (const dId of dept_ids) {
       if (!dId) continue;
       stmts.push(env.DB.prepare(
@@ -343,9 +339,9 @@ export async function onRequestPost(ctx) {
       ).bind(gId, id));
     }
 
-     await env.DB.batch(stmts);
+    await env.DB.batch(stmts);
 
-    // Return created/updated user (with counts)
+    // Return created/updated user (with counts) — using org_user_memberships compatibility join
     const { results } = await env.DB.prepare(
       `
       SELECT
