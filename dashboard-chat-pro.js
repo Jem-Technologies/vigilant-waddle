@@ -44,8 +44,7 @@
     const t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; bar.appendChild(t);
     setTimeout(()=>{t.classList.add('out'); setTimeout(()=>t.remove(),300)},1800);
   };
-  const fileUrl = (keyOrUrl)=> /^https?:\/\//i.test(keyOrUrl||'') ? keyOrUrl : (keyOrUrl ? `/cdn/${encodeURIComponent(keyOrUrl)}` : '');
-
+  const fileUrl = (keyOrUrl)=> /^https?:\/\//i.test(keyOrUrl||'') ? keyOrUrl : (keyOrUrl ? `/api/cdn/${encodeURIComponent(keyOrUrl)}` : '');
   // ------------------- mount/unmount -------------------
   async function init(root){
     state.root = root;

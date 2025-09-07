@@ -245,18 +245,18 @@ function roleDisplay(u) {
   let usersIndex = new Map();
 
   function expandForView(u) {
-    // For Admins, always expose all
-    if ((u.role || '').toLowerCase() === 'admin') {
+    const r = String(u.role || '').toLowerCase();
+    const isOwner = !!u.is_owner || r === 'owner' || r === 'original';
+    const isAdmin = r === 'admin';
+    if (isOwner || isAdmin) {
       return {
         groups: allGroups().map(g => g.id),
         depts:  allDepts().map(d => d.id),
         perms:  allPerms().map(p => p.key || p.id)
       };
     }
-    // otherwise take from user record (support several shapes)
     const groups = u.group_ids || u.groups || tryParse(u.group_ids_json) || [];
     const depts  = u.dept_ids  || u.departments || tryParse(u.dept_ids_json) || [];
-    // permissions might be keys in u.perm_ids OR names in u.privileges; normalize to keys
     let perms = u.perm_ids || u.perm_keys || tryParse(u.perms_json) || u.privileges || [];
     perms = (perms || []).map(x => (typeof x === 'string' ? x : (x.key || x.id || x.name || ''))).filter(Boolean);
     return { groups, depts, perms };
@@ -578,4 +578,13 @@ function roleDisplay(u) {
     }
   })();
 
+  // near the end of admin-users.js after init()
+  window.reloadAdminUsers = async function() {
+    try {
+      await Promise.all([loadGroups(), loadPermissions(), loadDepartments()]);
+      await loadUsers();
+    } catch (e) {
+      console.warn('[admin-users] reload failed:', e);
+    }
+  };
 })();

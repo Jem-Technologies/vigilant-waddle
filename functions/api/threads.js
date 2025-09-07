@@ -64,3 +64,38 @@ import { getAuthed, json } from "../_lib/auth.js";
      return json({ error:"server_error", detail:String(err) }, 500);
    }
  }
+
+ export async function onRequestPost({ request, env }) {
+  try {
+    const auth = await getAuthed(env, request);
+    if (!auth?.ok) return json({ error:"unauthorized" }, 401);
+
+    // Treat Admin + Owner as privileged creators
+    const role = String(auth.role || '').toLowerCase();
+    const isPriv = (role === 'admin' || role === 'owner');
+    if (!isPriv) return json({ error: "forbidden" }, 403);
+
+    const body = await request.json().catch(()=>null);
+    const title = (body?.title || "").trim();
+    const department_id = body?.department_id || null;
+    const group_id = body?.group_id || null;
+    if (!title) return json({ error:"title required" }, 400);
+    if (!department_id && !group_id) return json({ error:"department_id or group_id required" }, 400);
+
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO threads (id, org_id, title, department_id, group_id, created_by, created_at)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, unixepoch())
+    `).bind(id, auth.orgId, title, department_id, group_id, auth.userId).run();
+
+    // Optional welcome post
+    await env.DB.prepare(`
+      INSERT INTO messages (id, thread_id, sender_id, kind, body, media_url, created_at)
+      VALUES (?1, ?2, ?3, 'text', json_object('text', ?4), NULL, datetime('now'))
+    `).bind(crypto.randomUUID(), id, auth.userId, `Welcome to "${title}"`).run();
+
+    return json({ ok:true, thread: { id, title, department_id, group_id } }, 201);
+  } catch (err) {
+    return json({ error:"server_error", detail:String(err) }, 500);
+  }
+}

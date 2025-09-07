@@ -100,7 +100,7 @@
           <h3 class="panel-sub">Groups</h3>
           <div class="form-row">
             <label>New group
-              <input type="text" id="newGroupName" placeholder="e.g., Q3 Campaign">
+              <input type="text" id="newGroupName" placeholder="e.g sales team 1">
             </label>
             <label>Department
               <select id="newGroupDept"></select>
@@ -177,6 +177,7 @@
       await loadGroups();
       // Update the live chat lists if open
       window.refreshChatLists?.();
+      window.reloadAdminUsers?.(); // <-- add this line
     }
 
     // Create handlers

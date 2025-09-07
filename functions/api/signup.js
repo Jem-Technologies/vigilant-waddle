@@ -70,7 +70,7 @@ export async function onRequestPost({ request, env }) {
       .bind(org.id)
       .first();
     const isFirstInOrg = Number(countOrg?.c || 0) === 0;
-    const orgRole = isFirstInOrg ? "Admin" : "Member";
+    const orgRole = isFirstInOrg ? "Owner" : "Member";
 
     await env.DB
       .prepare(`INSERT OR REPLACE INTO user_orgs (user_id, org_id, role, created_at) VALUES (?1, ?2, ?3, unixepoch())`)

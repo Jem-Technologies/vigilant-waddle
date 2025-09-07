@@ -2,19 +2,14 @@
 import { getAuthed, json } from "../_lib/auth.js";
 
 // ---- helpers ----
-function isAdmin(auth) {
-  return auth?.role === "Admin";
+function isPrivileged(auth) {
+  const r = String(auth?.role || '').toLowerCase();
+  return r === 'admin' || r === 'owner';
+}
+function getOrgId(auth) {
+  return auth?.org_id ?? auth?.orgId ?? auth?.user?.org_id ?? auth?.session?.org_id ?? null;
 }
 
-function getOrgId(auth) {
-  return (
-    auth?.org_id ??
-    auth?.orgId ??
-    auth?.user?.org_id ??
-    auth?.session?.org_id ??
-    null
-  );
-}
 
 // escape % and _ for LIKE; we use ESCAPE '\'
 function likeQuery(q) {
@@ -48,38 +43,39 @@ export async function onRequestGet(ctx) {
 
     const auth = await getAuthed(env, request);
     if (!auth?.ok) return json({ error: "unauthorized" }, 401);
-    // NOTE: no admin requirement for reading
+
     const org_id = getOrgId(auth);
     if (!org_id) return json({ error: "missing org_id" }, 400);
 
     const url = new URL(request.url);
     const q = url.searchParams.get("q")?.trim();
     const orderParam = (url.searchParams.get("order") || "name").toLowerCase();
-    const order = orderParam === "created_at" ? "created_at" : "name"; // whitelist
+    const order = orderParam === "created_at" ? "created_at" : "name";
 
-    let stmt;
-    if (q) {
-      stmt = env.DB
-        .prepare(
-          `SELECT id, name, org_id, created_at
-             FROM departments
-            WHERE org_id = ? AND name LIKE ? ESCAPE '\\'
-            ORDER BY ${order}`
-        )
-        .bind(org_id, likeQuery(q));
-    } else {
-      stmt = env.DB
-        .prepare(
-          `SELECT id, name, org_id, created_at
-             FROM departments
-            WHERE org_id = ?
-            ORDER BY ${order}`
-        )
-        .bind(org_id);
-    }
+    let sql = `
+      WITH dept_users AS (
+        SELECT dm.user_id
+          FROM department_members dm
+         WHERE dm.department_id = d.id
+        UNION
+        SELECT gm.user_id
+          FROM group_members gm
+          JOIN groups g ON g.id = gm.group_id
+         WHERE g.department_id = d.id
+      )
+      SELECT
+        d.id, d.name, d.org_id, d.created_at,
+        IFNULL((SELECT COUNT(*) FROM groups g WHERE g.org_id = d.org_id AND g.department_id = d.id), 0) AS group_count,
+        IFNULL((SELECT COUNT(*) FROM threads t WHERE t.org_id = d.org_id AND t.department_id = d.id), 0) AS thread_count,
+        IFNULL((SELECT COUNT(DISTINCT user_id) FROM dept_users), 0) AS member_count
+      FROM departments d
+      WHERE d.org_id = ?1
+    `;
+    const binds = [org_id];
+    if (q) { sql += " AND d.name LIKE ?||'%'"; binds.push(q); }
+    sql += ` ORDER BY ${order}`;
 
-    const { results } = await stmt.all();
-    // Return a raw array so existing arr.map(...) doesn’t crash
+    const { results } = await env.DB.prepare(sql).bind(...binds).all();
     return json(results ?? [], 200);
   } catch (e) {
     console.error("[departments][GET] unhandled:", e);

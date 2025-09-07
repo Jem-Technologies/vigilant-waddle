@@ -6,8 +6,8 @@ function ensureDB(env) {
   if (!env?.DB) throw new Error("D1 binding env.DB is missing.");
 }
 function isAdmin(auth) {
-  const role = String(auth?.role || auth?.user?.role || "").toLowerCase();
-  return auth?.admin === true || auth?.is_admin === true || role === "admin" || auth?.claims?.is_admin === true;
+  const r = String(auth?.role || auth?.user?.role || "").toLowerCase();
+  return auth?.admin === true || auth?.is_admin === true || r === "admin" || r === "owner" || auth?.claims?.is_admin === true;
 }
 
 function getOrgId(auth) {
