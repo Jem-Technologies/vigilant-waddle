@@ -158,7 +158,7 @@ export async function onRequestPost(ctx) {
     console.error("[departments][POST] unhandled:", e);
     return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
-}
+
 
 // ---- PUT: update department (admin) + best-effort thread title sync ----
 export async function onRequestPut(ctx) {
