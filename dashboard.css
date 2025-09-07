@@ -284,7 +284,7 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 
 .dashboard .dash-row { display:grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--gap); margin-bottom: var(--gap); }
 .dashboard .grid-3 { display:grid; grid-template-columns: repeat(3,1fr); gap: var(--gap); }
-.grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.grid-2 { display:flex; flex-direction: column; grid-template-columns: 1fr 1fr; gap: var(--gap); }
 .grid-3 { display:grid; grid-template-columns: repeat(3,1fr); gap: var(--gap); }
 .grid-cards { display:grid; grid-template-columns: repeat(3,1fr); gap: var(--gap); }
 
