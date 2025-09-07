@@ -506,7 +506,6 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 #adminUsersCard .table th,
 #adminUsersCard .table td { vertical-align: top; }
 .table.compact td, .table.compact th { padding: 6px 8px; }
-.table .num { text-align: right; }
 .icon-btn.danger { color: #b91c1c; }
 .table-wrap { overflow:auto; border:1px solid #e5e7eb; border-radius:8px; }
 

@@ -947,7 +947,7 @@ function initUserSettings() {
     density: 'comfortable',
     font: 'system-ui',
     theme: 'light',
-    color: '#6c7fff',
+    color: '#4f46e5',
     language: 'en',
     region: 'auto',
     sidebarMode: 'normal',
@@ -1131,7 +1131,7 @@ function initUserSettings() {
         density: 'comfortable',
         font: 'system-ui',
         theme: 'light',
-        color: '#6c7fff',
+        color: '#4f46e5',
         language: 'en',
         region: 'auto',
         sidebarMode: 'normal',
@@ -1187,7 +1187,7 @@ function applyUserSettings() {
   else html.removeAttribute('data-contrast');
 
   // Primary color
-  const color = s.color || '#6c7fff';
+  const color = s.color || '#4f46e5';
   document.body.style.setProperty('--primary', color);
   const rgb = (typeof hexToRgb === 'function') ? hexToRgb(color) : null;
   document.body.style.setProperty('--primary-faded', rgb ? `rgba(${rgb.join(', ')}, 0.2)` : 'rgba(0,0,0,.2)');
