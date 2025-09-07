@@ -156,7 +156,12 @@ export async function onRequestPost(ctx) {
       console.warn("[departments][POST] thread create skipped:", err?.message || err);
       chat_thread_id = null;
     }
+    return json({ ok: true, group: { id, name, org_id, chat_thread_id } }, 200);
+  } catch (e) {
+    console.error("[groups][POST] unhandled:", e);
+    return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
+}
 
 // ---- PUT: update group (admin) + best-effort thread title sync ----
 export async function onRequestPut(ctx) {
@@ -247,5 +252,4 @@ export async function onRequestDelete(ctx) {
     console.error("[groups][DELETE] unhandled:", e);
     return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
-}
 }
