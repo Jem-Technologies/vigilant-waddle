@@ -93,6 +93,7 @@ export async function onRequestOptions() {
 }
 
 /* ------------- GET: list users with role & counts ------------- */
+/* ------------- GET: list users with role & counts ------------- */
 export async function onRequestGet(ctx) {
   try {
     const { env, request } = ctx;
@@ -110,13 +111,18 @@ export async function onRequestGet(ctx) {
         u.id,
         u.email,
         COALESCE(u.name, u.email) AS name,
+        u.username,
+        u.avatar_url,             -- required for Users (avatar) column
+        u.nickname,               -- required for Nickname column
+        u.use_nickname,           -- not used for display here, but included for parity
 
-        /* role fallback: prefer role.name, else user_orgs.role */
+        /* role: prefer roles.name, else user_orgs.role */
         COALESCE(r.name, uo.role, 'Member') AS role,
 
+        /* owners display as "Owner" in UI */
         CASE WHEN uo.role = 'Owner' THEN 1 ELSE 0 END AS is_owner,
 
-        /* counts */
+        /* counts for caret buttons */
         IFNULL((
           SELECT COUNT(*) FROM department_members dm
           JOIN departments d ON d.id = dm.department_id
@@ -134,32 +140,28 @@ export async function onRequestGet(ctx) {
           WHERE rp.role_id = ur.role_id
         ), 0) AS perm_count,
 
-        /* arrays for UI */
+        /* names for dropdowns (JSON arrays) */
         IFNULL((
-          SELECT json_group_array(d.id) FROM department_members dm
+          SELECT json_group_array(d.name)
+          FROM department_members dm
           JOIN departments d ON d.id = dm.department_id
           WHERE d.org_id = ?1 AND dm.user_id = u.id
-        ), json('[]')) AS dept_ids_json,
+        ), json('[]')) AS dept_names_json,
 
         IFNULL((
-          SELECT json_group_array(g.id) FROM group_members gm
+          SELECT json_group_array(g.name)
+          FROM group_members gm
           JOIN groups g ON g.id = gm.group_id
           WHERE g.org_id = ?1 AND gm.user_id = u.id
-        ), json('[]')) AS group_ids_json,
+        ), json('[]')) AS group_names_json,
 
+        /* permission keys for dropdown (JSON array) */
         IFNULL((
           SELECT json_group_array(p.key)
           FROM role_permissions rp
           JOIN permissions p ON p.id = rp.permission_id
           WHERE rp.role_id = ur.role_id
-        ), json('[]')) AS perms_json,
-
-        IFNULL((
-          SELECT json_group_array(p.id)
-          FROM role_permissions rp
-          JOIN permissions p ON p.id = rp.permission_id
-          WHERE rp.role_id = ur.role_id
-        ), json('[]')) AS perm_ids_json
+        ), json('[]')) AS perms_json
 
       FROM user_orgs uo
       JOIN users u ON u.id = uo.user_id
@@ -171,13 +173,13 @@ export async function onRequestGet(ctx) {
     `);
 
     const { results } = await stmt.bind(org_id).all(); // bind once for ?1
-
     return json(results ?? [], 200);
   } catch (e) {
     console.error("[users][GET] unhandled:", e);
     return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
 }
+
 
 /* ------------- POST: create user (+ custom role/permissions) ------------- */
 export async function onRequestPost(ctx) {
