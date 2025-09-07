@@ -101,18 +101,24 @@ export async function onRequestGet(ctx) {
   try {
     const { env, request } = ctx;
     ensureDB(env);
+
     const auth = await getAuthed(env, request);
     if (!auth?.ok) return json({ error: "unauthorized" }, 401);
+
     const org_id = getOrgId(auth);
     if (!org_id) return json({ error: "missing org_id" }, 400);
 
-    const { results } = await env.DB.prepare(`
+    // NOTE: Every ?1 below is the same org_id; we bind it ONCE at the end.
+    const stmt = env.DB.prepare(`
       SELECT
         u.id,
         u.email,
         COALESCE(u.name, u.email) AS name,
-        COALESCE(r.name, uo.role) AS role,
-        CASE WHEN uo.role='Owner' THEN 1 ELSE 0 END AS is_owner,
+
+        /* role fallback: prefer role.name, else user_orgs.role */
+        COALESCE(r.name, uo.role, 'Member') AS role,
+
+        CASE WHEN uo.role = 'Owner' THEN 1 ELSE 0 END AS is_owner,
 
         /* counts */
         IFNULL((
@@ -120,44 +126,55 @@ export async function onRequestGet(ctx) {
           JOIN departments d ON d.id = dm.department_id
           WHERE d.org_id = ?1 AND dm.user_id = u.id
         ), 0) AS dept_count,
+
         IFNULL((
           SELECT COUNT(*) FROM group_members gm
           JOIN groups g ON g.id = gm.group_id
           WHERE g.org_id = ?1 AND gm.user_id = u.id
         ), 0) AS group_count,
+
         IFNULL((
-          SELECT COUNT(*) FROM role_permissions rp WHERE rp.role_id = ur.role_id
+          SELECT COUNT(*) FROM role_permissions rp
+          WHERE rp.role_id = ur.role_id
         ), 0) AS perm_count,
 
-        /* arrays the front-end expects */
+        /* arrays for UI */
         IFNULL((
           SELECT json_group_array(d.id) FROM department_members dm
           JOIN departments d ON d.id = dm.department_id
           WHERE d.org_id = ?1 AND dm.user_id = u.id
         ), json('[]')) AS dept_ids_json,
+
         IFNULL((
           SELECT json_group_array(g.id) FROM group_members gm
           JOIN groups g ON g.id = gm.group_id
           WHERE g.org_id = ?1 AND gm.user_id = u.id
         ), json('[]')) AS group_ids_json,
+
         IFNULL((
-          SELECT json_group_array(p.key) FROM role_permissions rp
+          SELECT json_group_array(p.key)
+          FROM role_permissions rp
           JOIN permissions p ON p.id = rp.permission_id
           WHERE rp.role_id = ur.role_id
         ), json('[]')) AS perms_json,
+
         IFNULL((
-          SELECT json_group_array(p.id) FROM role_permissions rp
+          SELECT json_group_array(p.id)
+          FROM role_permissions rp
           JOIN permissions p ON p.id = rp.permission_id
           WHERE rp.role_id = ur.role_id
         ), json('[]')) AS perm_ids_json
 
       FROM user_orgs uo
       JOIN users u ON u.id = uo.user_id
-      LEFT JOIN user_roles ur ON ur.org_id = uo.org_id AND ur.user_id = uo.user_id
+      LEFT JOIN user_roles ur
+        ON ur.org_id = uo.org_id AND ur.user_id = uo.user_id
       LEFT JOIN roles r ON r.id = ur.role_id
       WHERE uo.org_id = ?1
       ORDER BY lower(COALESCE(u.name, u.email)) ASC, lower(u.email) ASC
-    `).all();
+    `);
+
+    const { results } = await stmt.bind(org_id).all(); // ← bind once for ?1
 
     return json(results ?? [], 200);
   } catch (e) {
