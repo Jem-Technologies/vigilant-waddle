@@ -292,7 +292,7 @@ function roleDisplay(u) {
         <div
           style="
           width:36px;height:36px;border-radius:50%;overflow:hidden;
-          background:#e5e7eb;display:flex;align-items:center;justify-content:flex-start;
+          background:#e5e7eb;display:flex;align-items:center;justify-content:center;
           font-weight:700;font-size:12px;color:#374151;">
           ${avatar}
         </div>
