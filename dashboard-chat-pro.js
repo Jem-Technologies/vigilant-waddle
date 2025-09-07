@@ -57,8 +57,7 @@
 
     wireComposer();
     wireContext();
-
-    await loadThreads();
+    await loadThreadsAndStructure();
     connectWS();
     state.mounted = true;
   }
@@ -76,34 +75,63 @@
   const q = sel => state.root?.querySelector(sel) || document.querySelector(sel);
 
   // ------------------- threads -------------------
-  async function loadThreads(){
-    // Load all visible threads; filter by dept/group elsewhere if needed
-    const arr = await api.get('/api/threads').catch(()=>[]);
-    state.threads = Array.isArray(arr) ? arr : [];
-    renderThreadList();
-    if (state.threads[0]) {
-      state.currentThread = state.threads[0];
-      await loadMessages(state.currentThread.id);
-    }
+  async function loadThreadsAndStructure(){
+    const [threads, groups, depts, directory] = await Promise.all([
+      api.get('/api/threads').catch(()=>[]),
+      api.get('/api/groups').catch(()=>[]),
+      api.get('/api/departments').catch(()=>[]),
+      api.get('/api/directory').catch(()=>[])   // people visible to me
+    ]);
+    state.threads = Array.isArray(threads) ? threads : [];
+    state.groupsById = new Map((groups||[]).map(g => [g.id, g]));
+    state.deptsById  = new Map((depts||[]).map(d => [d.id, d]));
+    state.userById   = new Map((directory||[]).map(u => [u.id, u]));
+    renderThreadTree();
+    // Auto-select something reasonable
+    const first = state.threads[0];
+    if (first) { state.currentThread = first; await loadMessages(first.id); }
   }
 
-  function renderThreadList(){
+  function renderThreadTree(){
     const el = q(SEL.list); if (!el) return;
     el.innerHTML = '';
-    state.threads.forEach(t=>{
-      const item = document.createElement('div');
-      item.className = 'item';
-      item.setAttribute('role','button');
-      item.innerHTML = `<span>${esc(t.title || 'Thread')}</span>`;
-      item.onclick = async ()=>{
-        state.currentThread = t;
-        Array.from(el.children).forEach(n=>n.classList.remove('active'));
-        item.classList.add('active');
-        await loadMessages(t.id);
-      };
-      el.appendChild(item);
-    });
-    if (el.firstChild) el.firstChild.classList.add('active');
+    if (!state.threads.length){
+      el.innerHTML = `<div class="muted">You have not been added to any groups or departments.</div>`;
+      return;
+    }
+    // Group threads by (dept_id -> group_id)
+    const byDept = new Map(); // deptId -> Map(groupId -> threads[])
+    for (const t of state.threads){
+      const dId = t.department_id || null;
+      const gId = t.group_id || null;
+      if (!byDept.has(dId)) byDept.set(dId, new Map());
+      const m = byDept.get(dId);
+      if (!m.has(gId)) m.set(gId, []);
+      m.get(gId).push(t);
+    }
+    // Render each department legend, then its groups as items
+    for (const [dId, groupsMap] of byDept.entries()){
+      const d = dId ? state.deptsById.get(dId) : null;
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+      legend.textContent = d ? (d.name || 'Department') : 'Uncategorized';
+      el.appendChild(legend);
+      for (const [gId, threads] of groupsMap.entries()){
+        const g = gId ? state.groupsById.get(gId) : null;
+        const name = g ? g.name : (threads[0]?.title || 'Conversation');
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.setAttribute('role', 'button');
+        item.innerHTML = `<span>${esc(name)}</span>`;
+        item.addEventListener('click', async ()=>{
+          // prefer a thread bound to this group; otherwise first thread in this bucket
+          const t = threads.find(x => x.group_id === gId) || threads[0];
+          state.currentThread = t;
+          await loadMessages(t.id);
+        });
+        el.appendChild(item);
+      }
+    }
   }
 
   // ------------------- messages -------------------
@@ -129,6 +157,26 @@
       row.style.justifyContent = mine ? 'flex-end' : 'flex-start';
       row.style.margin = '6px 0';
 
+      // Avatar (clickable to open the right panel)
+      const avatar = document.createElement('button');
+      avatar.className = 'avatar-btn';
+      avatar.style.width = '28px';
+      avatar.style.height = '28px';
+      avatar.style.borderRadius = '50%';
+      avatar.style.border = '0';
+      avatar.style.marginRight = '8px';
+      avatar.style.background = '#e5e7eb';
+      const user = state.userById.get(m.sender_id);
+      const initials = (user?.display_name || user?.name || user?.email || '?')
+        .split(/\s+/).map(s=>s[0]).join('').slice(0,2).toUpperCase();
+      avatar.textContent = initials;
+      avatar.title = (user?.display_name || user?.name || user?.email || 'User');
+      avatar.addEventListener('click', ()=> openUserCard({
+        name: user?.display_name || user?.name || '',
+        email: user?.email || '',
+        role:  user?.role || ''
+      }));
+
       const bubble = document.createElement('div');
       bubble.className = 'bubble' + (mine?' me':'');
       bubble.style.maxWidth='72%';
@@ -152,8 +200,8 @@
       }
 
       bubble.innerHTML = `${inner}<time style="position:absolute;bottom:-16px;right:8px;color:#94a3b8;font-size:11px">${fmtTime(m.created_at)}</time>`;
-      row.appendChild(bubble);
-      box.appendChild(row);
+      if (!mine) row.appendChild(avatar);
+      row.appendChild(bubble);      box.appendChild(row);
     });
     box.scrollTop = box.scrollHeight;
   }

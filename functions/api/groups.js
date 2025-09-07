@@ -109,10 +109,11 @@ export async function onRequestPost(ctx) {
     await env.DB
       .prepare(
         `INSERT INTO groups (id, org_id, name, created_at, updated_at)
-         VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+         VALUES (?1, ?2, ?3, unixepoch(), unixepoch())`
       )
       .bind(id, org_id, name)
       .run();
+
     // Add creator as a member so they can see its threads
     try {
       await env.DB.prepare(
@@ -127,26 +128,27 @@ export async function onRequestPost(ctx) {
     // --- Best-effort: create a default chat thread for this group ---
     // If your DB doesn't have a 'threads' table, this silently no-ops.
     let chat_thread_id = null;
-    try {
       chat_thread_id = crypto.randomUUID();
-      await env.DB
-        .prepare(
-          `INSERT INTO threads (id, org_id, title, department_id, group_id, created_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, unixepoch())`
-        )
-        .bind(
-          chat_thread_id,
-          org_id,
-          `Group: ${name}`,
-          id,
-          auth?.user?.id || null
-        )
-        .run();
-    } catch (err) {
-      // Ignore if threads table/check constraint doesn't exist; keep groups create success.
-      console.warn("[groups][POST] thread create skipped:", err?.message || err);
-      chat_thread_id = null;
-    }
+      await env.DB.prepare(
+        `INSERT INTO threads (id, org_id, title, department_id, group_id, created_by, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, unixepoch())`
+      ).bind(
+        chat_thread_id,
+        org_id,
+        `Group: ${name}`,
+        (department_id || null),
+        id,
+        (auth.userId || auth?.user?.id || null)
+      ).run();
+      /* Welcome message */
+      await env.DB.prepare(
+        `INSERT INTO messages (id, thread_id, sender_id, kind, body, media_url, created_at)
+         VALUES (?1, ?2, ?3, 'text', json_object('text', ?4), NULL, datetime('now'))`
+      ).bind(crypto.randomUUID(), chat_thread_id, (auth.userId || null), `Hello, welcome to ${name}!`).run();
+     } catch (err) {
+       console.warn("[groups][POST] thread create skipped:", err?.message || err);
+       chat_thread_id = null;
+     }
 
     const { results } = await env.DB
       .prepare(`SELECT id, name, org_id, created_at FROM groups WHERE id = ?`)
@@ -162,7 +164,6 @@ export async function onRequestPost(ctx) {
     console.error("[groups][POST] unhandled:", e);
     return json({ error: String(e), code: "UNHANDLED" }, 500);
   }
-}
 
 // ---- PUT: update group (admin) + best-effort thread title sync ----
 export async function onRequestPut(ctx) {
