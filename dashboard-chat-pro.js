@@ -283,17 +283,64 @@
     if (!state.currentThread) { toast('Pick a conversation','info'); return; }
     const input = q(SEL.input);
     const text = (input.value || '').trim(); if (!text) return;
-    toast('Sending…','info');
-    const res = await api.post('/api/messages', {
+
+    // Optimistic message
+    const client_id = crypto.randomUUID();
+    const pending = {
+      id: client_id, client_id,
       thread_id: state.currentThread.id,
+      sender_id: state.me.id,
       kind: 'text',
-      content: text,      // support servers expecting "content"
-      body: { text }      // and servers expecting "body.text"
-    }).catch(()=>null);
-    if (res?.id || res?.ok) {
-      input.value=''; await loadMessages(state.currentThread.id);
+      body: { text },
+      created_at: new Date().toISOString(),
+      __pending: true
+    };
+    state.messages.push(pending);
+    renderMessages();
+
+    input.value = '';
+    const payload = {
+      thread_id: pending.thread_id,
+      kind: 'text',
+      body: { text },      // server expects body.text
+      content: text,       // also send content for compatibility
+      client_id            // idempotency
+    };
+
+    // timeout + clear error messaging
+    const controller = new AbortController();
+    const t = setTimeout(()=>controller.abort(), 10000);
+    let res;
+    try {
+      res = await fetch('/api/messages', {
+        method:'POST',
+        credentials:'include',
+        headers:{'content-type':'application/json'},
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      }).then(r=>r.json());
+    } catch (e) {
+      res = { error: 'network_error' };
+    } finally { clearTimeout(t); }
+
+    // Reconcile
+    const idx = state.messages.findIndex(m => m.id === client_id);
+    if (res?.id) {
+      // confirmed
+      const merged = { ...state.messages[idx], id: res.id, __pending:false, created_at: res.created_at || pending.created_at };
+      state.messages.splice(idx, 1, merged);
+      renderMessages();
     } else {
-      toast('Failed','error');
+      // surface exact cause from API if present
+      const reason = res?.error || 'send_failed';
+      const failed = { ...state.messages[idx], __pending:false, __failed:true, __reason: reason };
+      state.messages.splice(idx, 1, failed);
+      renderMessages();
+      toast(
+        reason === 'forbidden' ? 'You are not a member of this group/department.' :
+        reason === 'unauthorized' ? 'Please sign in again.' :
+        reason, 'error'
+      );
     }
   }
 

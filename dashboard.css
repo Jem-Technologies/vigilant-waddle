@@ -436,7 +436,7 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 .cmdk-hint { color: var(--text-muted); font-size: 12px; padding: 8px 4px 4px; text-align: right; }
 
 /* Toasts */
-.toasts { position: fixed; right: 12px; bottom: 12px; display:flex; flex-direction: column; gap: 8px; z-index: 60; }
+.toasts { position: fixed; right: 12px; bottom: 12px; display:flex; flex-direction: column; gap: 8px; z-index: 9999; }
 .toast { background: var(--surface); border: var(--line); border-left: 4px solid var(--primary); border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow); }
 
 /* Accessibility & Focus */
@@ -453,6 +453,19 @@ body:not(.no-sheet) #settingsPanel.sheet:not([hidden]){ transform: translateX(0)
 #logoutConfirm .modal-body {
   padding: 8px 0 16px;
 }
+
+/* sidebar */
+.dept-accordion { border-bottom: 1px solid #e5e7eb; }
+.dept-accordion .legend{
+  width:100%; text-align:left; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;
+  background:transparent; border:0; font-weight:600; cursor:pointer;
+}
+.group-list .item{ padding:8px 12px 8px 28px; cursor:pointer; }
+.group-list .item:hover{ background:#f8fafc; }
+
+.messages .bubble { position:relative; }
+.messages .bubble .msg-status{ margin-left:8px; opacity:0.7; font-size:12px; }
+
 
 /* Responsive */
 @media (min-width: 1440px) {

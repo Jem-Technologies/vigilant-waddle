@@ -126,18 +126,19 @@ export async function onRequestPost(ctx) {
 
 
     // --- Best-effort: create a default chat thread for this group ---
-    // If your DB doesn't have a 'threads' table, this silently no-ops.
+    // Use the group's department_id if provided, and always set group_id.
     let chat_thread_id = null;
     try {
       chat_thread_id = crypto.randomUUID();
       await env.DB.prepare(
         `INSERT INTO threads (id, org_id, title, department_id, group_id, created_by, created_at)
-         VALUES (?1, ?2, ?3, ?4, NULL, ?5, unixepoch())`
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, unixepoch())`
       ).bind(
         chat_thread_id,
         org_id,
-        `Dept: ${name}`,
-        id,
+        `Group: ${name}`,
+        (department_id || null),           // ✅ department context (if any)
+        id,                                // ✅ group thread
         (auth.userId || auth?.user?.id || null)
       ).run();
 
