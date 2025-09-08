@@ -116,6 +116,30 @@
     return data;
   }
 
+  function setBusy(btn, busy) {
+    if (!btn) return;
+    btn.disabled = !!busy;
+    if (busy) {
+      // keep original label to restore later
+      if (!btn.dataset._label) btn.dataset._label = btn.textContent || btn.value || 'Submit';
+      // support <button> and <input type="submit">
+      if ('textContent' in btn) btn.textContent = 'Please wait…';
+      if ('value' in btn) btn.value = 'Please wait…';
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('is-loading');
+    } else {
+      const label = btn.dataset._label;
+      if (label) {
+        if ('textContent' in btn) btn.textContent = label;
+        if ('value' in btn) btn.value = label;
+        delete btn.dataset._label;
+      }
+      btn.removeAttribute('aria-busy');
+      btn.classList.remove('is-loading');
+    }
+  }
+
+
   // ---------- Router (keeps your sections working) ----------
   const routes = [
     '/', '/problem', '/solution', '/features', '/integrations',
