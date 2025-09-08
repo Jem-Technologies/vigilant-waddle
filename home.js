@@ -3,20 +3,80 @@
   const $  = (s, d=document) => d.querySelector(s);
   const $$ = (s, d=document) => Array.from(d.querySelectorAll(s));
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn, {passive:false});
-  const toast = (msg) => {
+  // Replace the existing toast() with this top-center, safe-area-aware version
+  const toast = (msg, opts = {}) => {
+    const {
+      kind = 'default',   // 'default' | 'info' | 'warn' | 'error' | 'success'
+      ms   = 2600
+    } = opts;
+
+    // container (top-center)
+    let wrap = document.getElementById('toasts');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'toasts';
+      wrap.setAttribute('aria-live', 'polite');
+      wrap.setAttribute('role', 'status');
+      // top + safe-area; centered; stack vertically
+      wrap.style.cssText = [
+        'position:fixed',
+        'left:50%',
+        'top:calc(env(safe-area-inset-top, 0px) + 16px)',
+        'transform:translateX(-50%)',
+        'display:flex',
+        'flex-direction:column',
+        'gap:8px',
+        'z-index:2147483647', // max
+        'pointer-events:none',
+        'max-width:min(92vw, 520px)',
+        'padding:0 8px',
+      ].join(';');
+      document.body.appendChild(wrap);
+    }
+
+    // toast card
     const t = document.createElement('div');
-    t.className = 'toast';
+    t.className = `toast toast-${kind}`;
     t.textContent = msg;
-    const wrap = document.getElementById('toasts') || (() => {
-      const x = document.createElement('div');
-      x.id = 'toasts';
-      x.style.position='fixed'; x.style.right='16px'; x.style.bottom='16px'; x.style.display='flex';
-      x.style.flexDirection='column'; x.style.gap='8px'; x.style.zIndex='9999';
-      document.body.appendChild(x); return x;
-    })();
-    t.style.cssText = 'background:#111418;color:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 6px 18px rgba(0,0,0,.25)';
-    wrap.appendChild(t); setTimeout(()=>t.remove(), 2400);
+    t.setAttribute('role', 'alert');
+    t.style.cssText = [
+      'pointer-events:auto',
+      'background:#111418',
+      'color:#fff',
+      'border-radius:12px',
+      'padding:12px 14px',
+      'box-shadow:0 10px 30px rgba(0,0,0,.35)',
+      'font-size:14px',
+      'line-height:1.35',
+      'opacity:0',
+      'transform:translateY(-8px)',
+      'transition:opacity .18s ease, transform .18s ease',
+      // color accents by kind
+      kind === 'info'    ? 'border-left:4px solid #3b82f6' :
+      kind === 'warn'    ? 'border-left:4px solid #f59e0b' :
+      kind === 'error'   ? 'border-left:4px solid #ef4444' :
+      kind === 'success' ? 'border-left:4px solid #10b981' :
+                           'border-left:4px solid #64748b'
+    ].join(';');
+
+    wrap.appendChild(t);
+
+    // ensure user actually sees it (especially on mobile)
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+
+    // animate in, then out
+    requestAnimationFrame(() => {
+      t.style.opacity = '1';
+      t.style.transform = 'translateY(0)';
+    });
+    const ttl = Math.max(1500, ms|0);
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.style.transform = 'translateY(-8px)';
+      setTimeout(() => t.remove(), 220);
+    }, ttl);
   };
+
 
   // org helpers
   function getOrgFromPath() {
@@ -34,6 +94,7 @@
       .replace(/[^a-z0-9-]+/g, "-")
       .replace(/^-+|-+$/g, "");
   }
+
   async function apiPost(url, payload) {
     const res = await fetch(url, {
       method: "POST",
@@ -41,18 +102,18 @@
       credentials: "include",
       body: JSON.stringify(payload)
     });
-    let data; try { data = await res.json(); } catch { data = { error: "No JSON body" }; }
+    let data;
+    try { data = await res.json(); } catch { data = { error: "No JSON body" }; }
+
     if (!res.ok) {
-      const msg = data?.error || data?.detail || (data?.where ? `${data.where}: ${JSON.stringify(data)}` : JSON.stringify(data));
-      throw new Error(msg);
+      // Preserve useful context from server
+      const err = new Error(data?.error || data?.detail || `Request failed (${res.status})`);
+      err.status = res.status;
+      err.code   = data?.code || data?.where || null; // e.g., EMAIL_TAKEN, USERNAME_TAKEN, ORG_TAKEN
+      err.payload = data;
+      throw err;
     }
     return data;
-  }
-  function setBusy(btn, busy) {
-    if (!btn) return;
-    btn.disabled = !!busy;
-    if (busy) { btn.dataset._label = btn.textContent; btn.textContent = "Please wait…"; }
-    else { if (btn.dataset._label) btn.textContent = btn.dataset._label; delete btn.dataset._label; }
   }
 
   // ---------- Router (keeps your sections working) ----------
@@ -202,9 +263,45 @@
     const btn = $('#signupSubmit');
     try {
       setBusy(btn, true);
-      await apiPost('/api/signup', { name, username, email, password: pass1, org, orgName: company || undefined });
+      const res = await apiPost('/api/signup', {
+        name, username, email, password: pass1,
+        org, orgName: company || undefined
+      });
+
+      // Backend may return { alreadyExists: true } when account+org+membership already exist
+      if (res?.alreadyExists) {
+        toast('Account already exists. Redirecting to login…');
+        setTimeout(()=> location.href = '/login.html', 600);
+        return;
+      }
+
+      // Fresh signup OK
       location.href = '/dashboard.html';
+
     } catch (err) {
+      // Friendly, specific messages for 409s
+      if (err.status === 409) {
+        switch (err.code) {
+          case 'EMAIL_TAKEN':
+            toast('This email is already registered. Please login instead.');
+            setTimeout(()=> location.href = '/login.html', 900);
+            return;
+          case 'USERNAME_TAKEN':
+            toast('That username is already taken. Pick another.');
+            $('#suUser')?.focus();
+            return;
+          case 'ORG_TAKEN':
+            toast('That workspace name is taken. Choose a different name.');
+            $('#suOrg')?.focus();
+            return;
+          case 'USER_ORG_EXISTS':
+            toast('You already belong to this workspace. Redirecting to login…');
+            setTimeout(()=> location.href = '/login.html', 900);
+            return;
+          default:
+            // fall through
+        }
+      }
       toast(`Signup failed: ${err.message}`);
     } finally {
       setBusy(btn, false);
