@@ -53,26 +53,19 @@ export async function onRequestGet(ctx) {
     const order = orderParam === "created_at" ? "created_at" : "name";
 
     let sql = `
-      WITH dept_users AS (
-        SELECT dm.user_id
-          FROM department_members dm
-         WHERE dm.department_id = d.id
-        UNION
-        SELECT gm.user_id
-          FROM group_members gm
-          JOIN groups g ON g.id = gm.group_id
-         WHERE g.department_id = d.id
-      )
       SELECT
         d.id, d.name, d.org_id, d.created_at,
         IFNULL((SELECT COUNT(*) FROM groups g WHERE g.org_id = d.org_id AND g.department_id = d.id), 0) AS group_count,
         IFNULL((SELECT COUNT(*) FROM threads t WHERE t.org_id = d.org_id AND t.department_id = d.id), 0) AS thread_count,
-        IFNULL((SELECT COUNT(DISTINCT user_id) FROM dept_users), 0) AS member_count
+        IFNULL((SELECT COUNT(DISTINCT dm.user_id) FROM department_members dm WHERE dm.department_id = d.id), 0) AS member_count
       FROM departments d
-      WHERE d.org_id = ?1
+      WHERE d.org_id = ?
     `;
     const binds = [org_id];
-    if (q) { sql += " AND d.name LIKE ?||'%'"; binds.push(q); }
+    if (q) {
+      sql += " AND d.name LIKE ? ESCAPE '\\'";
+      binds.push((q || '').replace(/[%_]/g, s => "\\" + s) + '%');
+    }
     sql += ` ORDER BY ${order}`;
 
     const { results } = await env.DB.prepare(sql).bind(...binds).all();

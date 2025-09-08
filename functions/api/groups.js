@@ -60,11 +60,14 @@ export async function onRequestGet(ctx) {
         IFNULL((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id), 0) AS member_count
       FROM groups g
       LEFT JOIN departments d ON d.id = g.department_id
-      WHERE g.org_id = ?1
+      WHERE g.org_id = ?
     `;
     const binds = [org_id];
-    if (deptFilter) { sql += " AND g.department_id = ?2"; binds.push(deptFilter); }
-    if (q) { sql += " AND g.name LIKE ?||'%'"; binds.push(q); }
+    if (deptFilter) { sql += " AND g.department_id = ?"; binds.push(deptFilter); }
+    if (q) {
+      sql += " AND g.name LIKE ? ESCAPE '\\'";
+      binds.push((q || '').replace(/[%_]/g, s => "\\" + s) + '%');
+    }
     sql += ` ORDER BY ${order}`;
 
     const { results } = await env.DB.prepare(sql).bind(...binds).all();
@@ -211,7 +214,7 @@ export async function onRequestDelete(ctx) {
 
     const auth = await getAuthed(env, request);
     if (!auth?.ok) return json({ error: "unauthorized" }, 401);
-    if (!isAdmin(auth)) return json({ error: "forbidden" }, 403);
+    if (!isPrivileged(auth)) return json({ error: "forbidden" }, 403);
 
     const org_id = getOrgId(auth);
     if (!org_id) return json({ error: "missing org_id" }, 400);
