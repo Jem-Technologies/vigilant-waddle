@@ -26,7 +26,13 @@
 
   // ------------------- api helpers -------------------
   const api = {
-    get: (u) => fetch(u, { credentials:'include' }).then(r=>r.json()),
+    get: (u)=> fetch(u, { credentials:'include' }).then(async r=>{ 
+      const ct=(r.headers.get('content-type')||'').toLowerCase();
+      let data=null, text='';
+      try{ if(ct.includes('application/json')) data=await r.json(); else { text=await r.text(); try{ data=JSON.parse(text);}catch{} } }catch{}
+      if(!r.ok){ const msg=(data && (data.error||data.message||data.detail)) || text || ('HTTP '+r.status); throw new Error(msg); }
+      return data ?? {};
+    }),
     post: (u,b) => fetch(u, {
       method:'POST', credentials:'include',
       headers:{ 'content-type':'application/json' },
@@ -82,8 +88,8 @@
       api.get('/api/directory').catch(()=>[])   // people visible to me
     ]);
     state.threads = Array.isArray(threads) ? threads : [];
-    state.groupsById = new Map((groups||[]).map(g => [g.id, g]));
-    state.deptsById  = new Map((depts||[]).map(d => [d.id, d]));
+    state.groupsById = new Map((Array.isArray(groups) ? groups : []).map(g => [g.id, g]));
+    state.deptsById  = new Map((Array.isArray(depts) ? depts : []).map(d => [d.id, d]));
     state.userById   = new Map((directory||[]).map(u => [u.id, u]));
     renderThreadTree();
     // Auto-select something reasonable
