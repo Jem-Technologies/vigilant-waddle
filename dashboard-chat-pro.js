@@ -26,7 +26,15 @@
 
   // ------------------- api helpers -------------------
   const api = {
-    get: (u) => fetch(u, { credentials:'include' }).then(r=>r.json()),
+    get: async (u) => {
+      const r = await fetch(u, { credentials: 'include' });
+      if (!r.ok) {
+        // surface enough info to show a toast and fall back cleanly
+        const text = await r.text().catch(()=> '');
+        throw new Error(`GET ${u} failed: ${r.status} ${text}`);
+      }
+      return r.json();
+    },
     post: (u,b) => fetch(u, {
       method:'POST', credentials:'include',
       headers:{ 'content-type':'application/json' },
@@ -82,9 +90,10 @@
       api.get('/api/directory').catch(()=>[])   // people visible to me
     ]);
     state.threads = Array.isArray(threads) ? threads : [];
-    state.groupsById = new Map((groups||[]).map(g => [g.id, g]));
-    state.deptsById  = new Map((depts||[]).map(d => [d.id, d]));
-    state.userById   = new Map((directory||[]).map(u => [u.id, u]));
+    const asList = (x) => Array.isArray(x) ? x : [];
+    state.groupsById = new Map(asList(groups).map(g => [g.id, g]));
+    state.deptsById  = new Map(asList(depts).map(d => [d.id, d]));
+    state.userById   = new Map(asList(directory).map(u => [u.id, u]));
     renderThreadTree();
     // Auto-select something reasonable
     const first = state.threads[0];
