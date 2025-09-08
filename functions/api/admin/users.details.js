@@ -12,7 +12,7 @@ export async function onRequestGet({ request, env }) {
       const mod = await import("../../_lib/perm.js");
       hasPerm = mod.hasPerm;
     } catch {
-      hasPerm = (ctx, perm) => (ctx?.role || auth?.role) === "Admin";
+      hasPerm = (ctx, perm) => /^(Admin|Owner)$/i.test(ctx?.role || auth?.role);
     }
     const orgRole = auth.role || auth.user?.role || null;
     if (!hasPerm({ role: orgRole }, "users.read.all")) {
