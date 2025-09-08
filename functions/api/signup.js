@@ -12,11 +12,12 @@ export async function onRequestPost({ request, env }) {
     try { body = await request.json(); }
     catch { return j({ where: "parse", error: "Invalid JSON body" }, 400); }
 
-    const name = (body.name || "").trim();
+    const name     = (body.name || "").trim();
     const username = (body.username || "").trim().toLowerCase();
-    const email = (body.email || "").trim().toLowerCase();
+    const email    = (body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
-    const orgSlug = slugify(body.org || username);                  // keep your behavior
+    // org slug (optional). If missing, derive from username (keeps your behavior).
+    const orgSlug  = slugify(body.org || username);
     const orgNameInput = (body.orgName || "").trim();
 
     if (!name || !username || !email || !password) return j({ where: "validate", error: "name, username, email, and password are required" }, 400);
@@ -24,7 +25,7 @@ export async function onRequestPost({ request, env }) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return j({ where: "validate", error: "invalid email" }, 400);
     if (password.length < 8) return j({ where: "validate", error: "password must be at least 8 characters" }, 400);
 
-    // Ensure schema
+    // Ensure schema/tables
     await ensureSchemaCompat(env.DB);
 
     // --- ORG: find or create (reuse if slug exists) ---
@@ -43,22 +44,20 @@ export async function onRequestPost({ request, env }) {
       org = { id: orgId, slug: orgSlug, name: orgName };
     }
 
-    // --- Pre-checks for idempotency & clearer 409s ---
+    // --- Pre-checks for idempotency / cross-org join ---
     const existingByEmail = await env.DB
-      .prepare(`SELECT id, name, username, email FROM users WHERE email=?1`)
+      .prepare(`SELECT id, name, username, email, pwd_hash, pwd_salt FROM users WHERE email=?1`)
       .bind(email)
       .first();
 
-    // If the user already exists *and* already belongs to this org → idempotent OK (UI can redirect to login)
     if (existingByEmail) {
+      // If already a member of this org → idempotent OK (route to login on UI)
       const hasMembership = await env.DB
         .prepare(`SELECT 1 FROM user_orgs WHERE user_id=?1 AND org_id=?2`)
         .bind(existingByEmail.id, org.id)
         .first();
 
       if (hasMembership) {
-        // Optionally also drop a new 30d session cookie to be extra friendly (commented out)
-        // const { cookie } = await createSession(env.DB, existingByEmail.id, org.id);
         return new Response(JSON.stringify({
           ok: true,
           alreadyExists: true,
@@ -67,14 +66,45 @@ export async function onRequestPost({ request, env }) {
           org
         }), {
           status: 200,
-          headers: { "content-type": "application/json; charset=utf-8" /*, "set-cookie": cookie*/ }
+          headers: { "content-type": "application/json; charset=utf-8" }
         });
       }
-      // Same email but not a member of this org → treat as EMAIL_TAKEN to keep signup semantics strict.
-      return j({ where: "precheck", error: "Email is already registered", code: "EMAIL_TAKEN" }, 409);
+
+      // Email exists but not a member of this org → allow cross-org join IF password matches
+      try {
+        const saltB = atob(existingByEmail.pwd_salt);
+        const saltArr = new Uint8Array([...saltB].map(c => c.charCodeAt(0)));
+        const derived = await pbkdf2(password, saltArr, PBKDF2_ITERS);
+        const hashB64 = b64encode(new Uint8Array(derived));
+        if (hashB64 === existingByEmail.pwd_hash) {
+          // Create membership in this org
+          await env.DB.prepare(`
+            INSERT OR REPLACE INTO user_orgs (user_id, org_id, role, created_at)
+            VALUES (?1, ?2, 'Member', unixepoch())
+          `).bind(existingByEmail.id, org.id).run();
+
+          // Create session and return success (logs them in)
+          const { cookie, sessionId } = await createSession(env.DB, existingByEmail.id, org.id);
+          return new Response(JSON.stringify({
+            ok: true,
+            user: { id: existingByEmail.id, email: existingByEmail.email, username: existingByEmail.username, role: 'Member' },
+            org,
+            session: { id: sessionId },
+            joinedExistingAccount: true
+          }), {
+            status: 201,
+            headers: { "content-type": "application/json; charset=utf-8", "set-cookie": cookie }
+          });
+        }
+      } catch (e) {
+        // fall-through to error below
+      }
+
+      // Password didn’t match → explicit code so UI can guide to login
+      return j({ where: "precheck", error: "Email is already registered (password mismatch)", code: "EMAIL_TAKEN_PWD" }, 409);
     }
 
-    // Also check username uniqueness in advance to return a clean code (optional but nicer UX)
+    // Also check username uniqueness for cleaner UX
     const existingByUsername = await env.DB
       .prepare(`SELECT id FROM users WHERE username=?1`)
       .bind(username)
@@ -221,7 +251,7 @@ async function ensureSchemaCompat(DB) {
     );
   `).run();
 
-  // Chat core (safe if you already ran my schema)
+  // Chat core (safe to create if not already present)
   await DB.prepare(`CREATE TABLE IF NOT EXISTS departments (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, name TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (unixepoch()), updated_at INTEGER NOT NULL DEFAULT (unixepoch()));`).run();
   await DB.prepare(`CREATE INDEX IF NOT EXISTS idx_departments_org ON departments(org_id);`).run();
   await DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_departments_org_name ON departments(org_id, name);`).run();

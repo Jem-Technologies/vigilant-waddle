@@ -1,23 +1,18 @@
-(() => {
+(()=> {
   // ---------- Helpers ----------
   const $  = (s, d=document) => d.querySelector(s);
   const $$ = (s, d=document) => Array.from(d.querySelectorAll(s));
-  const on = (el, ev, fn) => el && el.addEventListener(ev, fn, {passive:false});
-  // Replace the existing toast() with this top-center, safe-area-aware version
-  const toast = (msg, opts = {}) => {
-    const {
-      kind = 'default',   // 'default' | 'info' | 'warn' | 'error' | 'success'
-      ms   = 2600
-    } = opts;
+  const on = (el, ev, fn) => el && el.addEventListener(ev, fn, { passive:false });
 
-    // container (top-center)
+  // Top-center, safe-area-aware toast
+  const toast = (msg, opts = {}) => {
+    const { kind='default', ms=2600 } = opts;
     let wrap = document.getElementById('toasts');
     if (!wrap) {
       wrap = document.createElement('div');
       wrap.id = 'toasts';
       wrap.setAttribute('aria-live', 'polite');
       wrap.setAttribute('role', 'status');
-      // top + safe-area; centered; stack vertically
       wrap.style.cssText = [
         'position:fixed',
         'left:50%',
@@ -26,19 +21,17 @@
         'display:flex',
         'flex-direction:column',
         'gap:8px',
-        'z-index:2147483647', // max
+        'z-index:2147483647',
         'pointer-events:none',
         'max-width:min(92vw, 520px)',
-        'padding:0 8px',
+        'padding:0 8px'
       ].join(';');
       document.body.appendChild(wrap);
     }
-
-    // toast card
     const t = document.createElement('div');
     t.className = `toast toast-${kind}`;
     t.textContent = msg;
-    t.setAttribute('role', 'alert');
+    t.setAttribute('role','alert');
     t.style.cssText = [
       'pointer-events:auto',
       'background:#111418',
@@ -51,32 +44,21 @@
       'opacity:0',
       'transform:translateY(-8px)',
       'transition:opacity .18s ease, transform .18s ease',
-      // color accents by kind
-      kind === 'info'    ? 'border-left:4px solid #3b82f6' :
-      kind === 'warn'    ? 'border-left:4px solid #f59e0b' :
-      kind === 'error'   ? 'border-left:4px solid #ef4444' :
-      kind === 'success' ? 'border-left:4px solid #10b981' :
-                           'border-left:4px solid #64748b'
+      kind==='info'    ? 'border-left:4px solid #3b82f6' :
+      kind==='warn'    ? 'border-left:4px solid #f59e0b' :
+      kind==='error'   ? 'border-left:4px solid #ef4444' :
+      kind==='success' ? 'border-left:4px solid #10b981' :
+                         'border-left:4px solid #64748b'
     ].join(';');
-
     wrap.appendChild(t);
-
-    // ensure user actually sees it (especially on mobile)
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
-
-    // animate in, then out
-    requestAnimationFrame(() => {
-      t.style.opacity = '1';
-      t.style.transform = 'translateY(0)';
-    });
+    requestAnimationFrame(()=>{ t.style.opacity='1'; t.style.transform='translateY(0)'; });
     const ttl = Math.max(1500, ms|0);
-    setTimeout(() => {
-      t.style.opacity = '0';
-      t.style.transform = 'translateY(-8px)';
-      setTimeout(() => t.remove(), 220);
+    setTimeout(()=>{
+      t.style.opacity='0'; t.style.transform='translateY(-8px)';
+      setTimeout(()=> t.remove(), 220);
     }, ttl);
   };
-
 
   // org helpers
   function getOrgFromPath() {
@@ -102,14 +84,11 @@
       credentials: "include",
       body: JSON.stringify(payload)
     });
-    let data;
-    try { data = await res.json(); } catch { data = { error: "No JSON body" }; }
-
+    let data; try { data = await res.json(); } catch { data = { error: "No JSON body" }; }
     if (!res.ok) {
-      // Preserve useful context from server
       const err = new Error(data?.error || data?.detail || `Request failed (${res.status})`);
-      err.status = res.status;
-      err.code   = data?.code || data?.where || null; // e.g., EMAIL_TAKEN, USERNAME_TAKEN, ORG_TAKEN
+      err.status  = res.status;
+      err.code    = data?.code || data?.where || null;
       err.payload = data;
       throw err;
     }
@@ -120,9 +99,7 @@
     if (!btn) return;
     btn.disabled = !!busy;
     if (busy) {
-      // keep original label to restore later
       if (!btn.dataset._label) btn.dataset._label = btn.textContent || btn.value || 'Submit';
-      // support <button> and <input type="submit">
       if ('textContent' in btn) btn.textContent = 'Please wait…';
       if ('value' in btn) btn.value = 'Please wait…';
       btn.setAttribute('aria-busy', 'true');
@@ -139,13 +116,11 @@
     }
   }
 
-
-  // ---------- Router (keeps your sections working) ----------
+  // ---------- Router ----------
   const routes = [
     '/', '/problem', '/solution', '/features', '/integrations',
     '/advantages', '/pricing', '/case-studies', '/faq', '/contact'
   ];
-
   function showRoute(route){
     $$('section.route').forEach(sec => {
       const r = sec.getAttribute('data-route');
@@ -183,12 +158,12 @@
   ['openLogin','openSignup','openLoginM','openSignupM','ctaSignup','ctaSignup2','footerSignup']
     .forEach(id=>{
       on($('#'+id), 'click', ()=>{
-        if (id.toLowerCase().includes('login')) { loginModal.showModal(); }
-        else                                     { signupModal.showModal(); }
+        if (id.toLowerCase().includes('login')) { loginModal?.showModal(); }
+        else                                     { signupModal?.showModal(); }
       });
     });
-  on($('#swapToSignup'), 'click', ()=>{ loginModal.close(); signupModal.showModal(); });
-  on($('#swapToLogin'),  'click', ()=>{ signupModal.close(); loginModal.showModal(); });
+  on($('#swapToSignup'), 'click', ()=>{ loginModal?.close(); signupModal?.showModal(); });
+  on($('#swapToLogin'),  'click', ()=>{ signupModal?.close(); loginModal?.showModal(); });
 
   // backdrop click closes
   [loginModal, signupModal].forEach(dlg=>{
@@ -200,7 +175,7 @@
     });
   });
 
-  // ---------- AUTH Forms (real API calls) ----------
+  // ---------- AUTH Forms ----------
   // LOGIN
   const loginForm = $('#loginForm');
   const loginBtn  = $('#loginSubmit');
@@ -209,34 +184,29 @@
     const orgInput = $('#loginOrg');
     if (pathOrg && orgInput) { orgInput.closest('label').style.display='none'; orgInput.removeAttribute('required'); }
 
-    on(loginForm, 'submit', async (e)=>{
-      e.preventDefault();
-      await doLogin(pathOrg);
-    });
-    on(loginBtn, 'click', async (e)=>{
-      e.preventDefault();
-      await doLogin(pathOrg);
-    });
-  }
-  async function doLogin(pathOrg){
-    const id = $('#loginId')?.value.trim();
-    const password = $('#loginPwd')?.value.trim();
-    let org = pathOrg;
-    if (!org) {
-      const raw = $('#loginOrg')?.value.trim();
-      if (!raw) { toast('Please enter your Organization'); return; }
-      org = slugifyOrg(raw);
+    async function doLogin(pathOrg){
+      const id = $('#loginId')?.value.trim();
+      const password = $('#loginPwd')?.value.trim();
+      let org = pathOrg;
+      if (!org) {
+        const raw = $('#loginOrg')?.value.trim();
+        if (!raw) { toast('Please enter your Organization', {kind:'warn'}); return; }
+        org = slugifyOrg(raw);
+      }
+      const btn = $('#loginSubmit');
+      try {
+        setBusy(btn, true);
+        await apiPost('/api/login', { id, password, org });
+        location.href = '/dashboard.html';
+      } catch (err) {
+        toast(`Login failed: ${err.message}`, {kind:'error'});
+      } finally {
+        setBusy(btn, false);
+      }
     }
-    const btn = $('#loginSubmit');
-    try {
-      setBusy(btn, true);
-      await apiPost('/api/login', { id, password, org });
-      location.href = '/dashboard.html';
-    } catch (err) {
-      toast(`Login failed: ${err.message}`);
-    } finally {
-      setBusy(btn, false);
-    }
+
+    on(loginForm, 'submit', async (e)=>{ e.preventDefault(); await doLogin(pathOrg); });
+    on(loginBtn,  'click',  async (e)=>{ e.preventDefault(); await doLogin(pathOrg); });
   }
 
   // SIGNUP
@@ -257,85 +227,80 @@
     const score=(p='')=>{ let s=0; if(p.length>=8)s++; if(/[A-Z]/.test(p))s++; if(/[a-z]/.test(p))s++; if(/[0-9\W]/.test(p))s++; return s; };
     on(suPwd,'input',()=> meter && (meter.value = score(suPwd.value||'')));
 
-    on(signupForm,'submit', async (e)=>{
-      e.preventDefault();
-      await doSignup();
-    });
-    on(signupBtn,'click', async (e)=>{
-      e.preventDefault();
-      await doSignup();
-    });
-  }
-  async function doSignup(){
-    const name     = $('#suName')?.value.trim();
-    const username = $('#suUser')?.value.trim();
-    const email    = $('#suEmail')?.value.trim();
-    const company  = $('#suCompany')?.value.trim();
-    const pass1    = $('#suPwd')?.value;
-    const pass2    = $('#suPwd2')?.value;
-    const tosOk    = $('#suTos')?.checked;
+    async function doSignup(){
+      const name     = $('#suName')?.value.trim();
+      const username = $('#suUser')?.value.trim();
+      const email    = $('#suEmail')?.value.trim();
+      const company  = $('#suCompany')?.value.trim();
+      const pass1    = $('#suPwd')?.value;
+      const pass2    = $('#suPwd2')?.value;
+      const tosOk    = $('#suTos')?.checked;
 
-    if (!name || !username || !email) return toast('Please complete required fields');
-    if ((pass1||'').length < 8)      return toast('Password must be at least 8 characters');
-    if (pass1 !== pass2)             return toast('Passwords do not match');
-    if (!tosOk)                      return toast('Please accept Terms & Privacy');
+      if (!name || !username || !email) return toast('Please complete required fields', {kind:'warn'});
+      if ((pass1||'').length < 8)      return toast('Password must be at least 8 characters', {kind:'warn'});
+      if (pass1 !== pass2)             return toast('Passwords do not match', {kind:'warn'});
+      if (!tosOk)                      return toast('Please accept Terms & Privacy', {kind:'warn'});
 
-    const pathOrg = getOrgFromPath();
-    const fieldOrg = slugifyOrg($('#suOrg')?.value || '');
-    const org = pathOrg || fieldOrg || slugifyOrg(username);
+      const pathOrg  = getOrgFromPath();
+      const fieldOrg = slugifyOrg($('#suOrg')?.value || '');
+      const org      = pathOrg || fieldOrg || slugifyOrg(username);
 
-    const btn = $('#signupSubmit');
-    try {
-      setBusy(btn, true);
-      const res = await apiPost('/api/signup', {
-        name, username, email, password: pass1,
-        org, orgName: company || undefined
-      });
+      const btn = $('#signupSubmit');
+      try {
+        setBusy(btn, true);
+        const res = await apiPost('/api/signup', {
+          name, username, email, password: pass1, org, orgName: company || undefined
+        });
 
-      // Backend may return { alreadyExists: true } when account+org+membership already exist
-      if (res?.alreadyExists) {
-        toast('Account already exists. Redirecting to login…');
-        setTimeout(()=> location.href = '/login.html', 600);
-        return;
-      }
-
-      // Fresh signup OK
-      location.href = '/dashboard.html';
-
-    } catch (err) {
-      // Friendly, specific messages for 409s
-      if (err.status === 409) {
-        switch (err.code) {
-          case 'EMAIL_TAKEN':
-            toast('This email is already registered. Please login instead.');
-            setTimeout(()=> location.href = '/login.html', 900);
-            return;
-          case 'USERNAME_TAKEN':
-            toast('That username is already taken. Pick another.');
-            $('#suUser')?.focus();
-            return;
-          case 'ORG_TAKEN':
-            toast('That workspace name is taken. Choose a different name.');
-            $('#suOrg')?.focus();
-            return;
-          case 'USER_ORG_EXISTS':
-            toast('You already belong to this workspace. Redirecting to login…');
-            setTimeout(()=> location.href = '/login.html', 900);
-            return;
-          default:
-            // fall through
+        if (res?.alreadyExists) {
+          toast('Account already exists. Redirecting to login…', {kind:'info'});
+          setTimeout(()=> location.href = '/login.html', 700);
+          return;
         }
+
+        location.href = '/dashboard.html';
+
+      } catch (err) {
+        if (err.status === 409) {
+          switch (err.code) {
+            case 'EMAIL_TAKEN':
+              toast('This email is already registered. Please login instead.', {kind:'warn'});
+              setTimeout(()=> location.href = '/login.html', 900);
+              return;
+            case 'EMAIL_TAKEN_PWD':
+              toast('That email is registered, but the password does not match. Please login.', {kind:'warn'});
+              setTimeout(()=> location.href = '/login.html', 900);
+              return;
+            case 'USERNAME_TAKEN':
+              toast('That username is already taken. Pick another.', {kind:'warn'});
+              $('#suUser')?.focus();
+              return;
+            case 'ORG_TAKEN':
+              toast('That workspace name is taken. Choose a different name.', {kind:'warn'});
+              $('#suOrg')?.focus();
+              return;
+            case 'USER_ORG_EXISTS':
+              toast('You already belong to this workspace. Redirecting to login…', {kind:'info'});
+              setTimeout(()=> location.href = '/login.html', 900);
+              return;
+            default:
+              // fallthrough
+          }
+        }
+        toast(`Signup failed: ${err.message}`, {kind:'error'});
+      } finally {
+        setBusy(btn, false);
       }
-      toast(`Signup failed: ${err.message}`);
-    } finally {
-      setBusy(btn, false);
     }
+
+    on(signupForm,'submit', async (e)=>{ e.preventDefault(); await doSignup(); });
+    on(signupBtn,  'click',  async (e)=>{ e.preventDefault(); await doSignup(); });
   }
 
-  // ---------- Contact form (keep your demo behavior) ----------
+  // ---------- Contact form ----------
   on($('#contactForm'), 'submit', (e)=>{
     e.preventDefault();
-    toast('Thanks! We will get back to you shortly.');
+    toast('Thanks! We will get back to you shortly.', {kind:'success'});
     e.target.reset();
   });
 
@@ -350,7 +315,7 @@
   on(window,'keydown',()=>{ if(mouseDown){ mouseDown=false; document.body.classList.remove('using-mouse'); } });
 
   // Auto-open signup from pricing buttons
-  $$('.openSignupAuto').forEach(b=> on(b,'click', ()=> signupModal.showModal() ));
+  $$('.openSignupAuto').forEach(b=> on(b,'click', ()=> signupModal?.showModal() ));
 
   // Diagnostics
   console.log('home.js boot OK', { login: !!$('#loginForm'), signup: !!$('#signupForm') });
